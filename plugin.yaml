@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.6'
+    package_version: '0.7'
 
 data_types:
   cloudify.types.terraform.Backend:
@@ -82,3 +82,18 @@ node_types:
       terraform:
         refresh_resources:
           implementation: tf.cloudify_tf.tasks.state_pull
+
+workflows:
+  refresh_terraform_resources:
+    mapping: tf.cloudify_tf.workflows.refresh
+    parameters:
+      node_instance_ids:
+        type: list
+        default: []
+        description: |
+          List of node instance ID's to refresh for.
+      node_ids:
+        type: list
+        default: []
+        description: |
+          List of node templates to refresh for.
