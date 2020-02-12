@@ -87,6 +87,7 @@ def get_terraform_source(ctx, _resource_config):
         # as a runtime property.
         base64_rep = _file_to_base64(terraform_source_zip)
         ctx.instance.runtime_properties['terraform_source'] = base64_rep
+        ctx.instance.runtime_properties['last_source_location'] = terraform_source
     else:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             base64.decode(StringIO.StringIO(encoded_source), f)
