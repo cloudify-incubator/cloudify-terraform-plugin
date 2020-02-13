@@ -22,6 +22,7 @@ import os
 from io import BytesIO
 import StringIO
 import shutil
+import time
 
 import requests
 
@@ -78,8 +79,13 @@ def get_terraform_source(ctx, _resource_config):
                         source_temp.write(chunk)
             ctx.logger.info("Template downloaded successfully")
         else:
-            terraform_source_zip = \
-                ctx.download_resource(terraform_source)
+            if os.path.isabs(terraform_source):
+                dst = "/tmp/terraform_{0}.zip".format(int(round(time.time() * 1000)))
+                shutil.copy(terraform_source, dst)
+                terraform_source_zip = dst
+            else:
+                terraform_source_zip = ctx.download_resource(terraform_source)
+
 
         # By getting here, "terraform_source_zip" is the path to a ZIP
         # file containing the Terraform files.
