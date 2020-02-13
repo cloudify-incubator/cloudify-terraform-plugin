@@ -81,22 +81,19 @@ node_types:
           implementation: tf.cloudify_tf.tasks.destroy
       terraform:
         reload:
-          # description:
-          #   Reloads the Terraform template. By default, the template will be
-          #   read from the last location it was loaded from. This can be overridden
-          #   by specifying the 'source' input.
+          # Reloads the Terraform template. By default, the template will be
+          # read from the last location it was loaded from.
+          # This can be overridden by specifying the 'source' input.
           implementation: tf.cloudify_tf.tasks.reload
           inputs:
             source:
               type: string
               default: { get_attribute: [ SELF, last_source_location ] }
         refresh:
-          # description:
-          #   Refreshes Terraform's state.
+          # Refreshes Terraform's state.
           implementation: tf.cloudify_tf.tasks.state_pull
         apply:
-          # description: 
-          #   Applies the Terraform plan.
+          # Applies the Terraform plan.
           implementation: tf.cloudify_tf.tasks.apply
 
 workflows:

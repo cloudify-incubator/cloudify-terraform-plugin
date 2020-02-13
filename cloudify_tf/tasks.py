@@ -147,13 +147,11 @@ def reload(ctx, tf, source, **_):
                 "New source path/URL for Terraform template was not provided")
         # initialize Terraform with new template location
         resource_config = ctx.node.properties['resource_config']
-        executable_path = ctx.node.properties['executable_path']
-        plugins_dir = ctx.node.properties['plugins_dir']
         with get_terraform_source(ctx, resource_config) as terraform_source:
             tf = Terraform(
                 ctx.logger,
-                executable_path,
-                plugins_dir,
+                tf.binary_path,
+                tf.plugins_dir,
                 terraform_source,
                 variables=resource_config.get('variables'),
                 environment_variables=resource_config.get('environment_variables'))
