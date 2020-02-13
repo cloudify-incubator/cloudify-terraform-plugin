@@ -1,0 +1,60 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/5.0.5/types.yaml
+  - plugin:cloudify-terraform-plugin
+
+inputs:
+
+  terraform_path:
+    type: string
+    default: /usr/bin/terraform
+
+  aws_access_key_id:
+    type: string
+    default: { get_secret: aws_access_key_id }
+
+  aws_secret_access_key:
+    type: string
+    default: { get_secret: aws_secret_access_key }
+
+  aws_default_region:
+    type: string
+    default: { get_secret: ec2_region_name }
+
+  public_key:
+    default: { get_secret: agent_key_public }
+
+node_templates:
+
+  # Build an infrastructure in AWS
+  aws_two_tier_example:
+    type: cloudify.nodes.terraform.Module
+    properties:
+      executable_path: { get_input: terraform_path }
+      storage_path: /tmp/template
+      plugins_dir: /tmp/template
+      resource_config:
+        environment_variables:
+          AWS_ACCESS_KEY_ID: { get_input: aws_access_key_id }
+          AWS_SECRET_ACCESS_KEY: { get_input: aws_secret_access_key }
+          AWS_DEFAULT_REGION: { get_input: aws_default_region }
+        variables:
+          aws_region: { get_input: aws_default_region }
+          key_name: terraform
+          public_key: { get_input: public_key }
+        source: resources/aws-two-tier.zip
+
+capabilities:
+  host_ip:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_instance.web, primary, attributes, public_ip ] }
+  host_instance_type:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_instance.web, primary, attributes, instance_type ] }
+  host_availability_zone:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_instance.web, primary, attributes, availability_zone ] }
+  host_instance_state:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_instance.web, primary, attributes, instance_state ] }
+  subnet_cidr_block:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_subnet.default, primary, attributes, cidr_block ] }
+  subnet_availability_zone:
+    value: { get_attribute: [ aws_two_tier_example, resources, aws_subnet.default, primary, attributes, availability_zone ] }
