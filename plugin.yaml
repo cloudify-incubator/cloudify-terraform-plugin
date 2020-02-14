@@ -89,6 +89,9 @@ node_types:
             source:
               type: string
               default: { get_attribute: [ SELF, last_source_location ] }
+            destory_prev_resources:
+              type: boolean
+              default: false
         refresh:
           # Refreshes Terraform's state.
           implementation: tf.cloudify_tf.tasks.state_pull

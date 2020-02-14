@@ -130,14 +130,15 @@ def destroy(ctx, tf, **_):
 
 @operation
 @with_terraform
-def reload(ctx, tf, source, **_):
+def reload(ctx, tf, source, destory_prev_resources, **_):
     """
     Terraform reload plan given new location as input
     """
     try:
         # check the new path provided by input
         if source:
-            tf.destroy()
+            if destory_prev_resources:
+                tf.destroy()
             # clear the runtime properties to fetch new template
             ctx.instance.runtime_properties.pop('terraform_source', None)
             ctx.instance.runtime_properties.pop('last_source_location', None)
