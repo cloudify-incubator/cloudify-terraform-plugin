@@ -23,7 +23,8 @@ from cloudify.decorators import operation
 from cloudify.utils import exception_to_error_cause
 
 from terraform import Terraform
-from utils import get_terraform_source
+from utils import ( get_terraform_source, get_terraform_state_file,
+                    move_state_file )
 
 
 def with_terraform(func):
@@ -129,40 +130,63 @@ def destroy(ctx, tf, **_):
 
 
 @operation
-@with_terraform
-def reload(ctx, tf, source, destory_prev_resources, **_):
+def reload(ctx, source, destroy_previous, **_):
     """
     Terraform reload plan given new location as input
     """
     try:
-        # check the new path provided by input
         if source:
-            if destory_prev_resources:
-                tf.destroy()
-            # clear the runtime properties to fetch new template
+            resource_config = ctx.node.properties['resource_config']
+            executable_path = ctx.node.properties['executable_path']
+            plugins_dir = ctx.node.properties['plugins_dir']
+            if not os.path.exists(executable_path):
+                raise NonRecoverableError(
+                    "Terraform's executable not found in {0}. Please set the "
+                    "'executable_path' property accordingly.".format(
+                        executable_path))
+            state_file = None
+            # if we want to destroy previous: no need to preserve the state file
+            # by default the state file will be used if no remote backend
+            if destroy_previous:
+                with get_terraform_source(ctx, resource_config) as terraform_source:
+                    tf = Terraform(
+                        ctx.logger,
+                        executable_path,
+                        plugins_dir,
+                        terraform_source,
+                        variables=resource_config.get('variables'),
+                        environment_variables=resource_config.get('environment_variables'))
+                    tf.destroy()
+            else:
+                # extract the state file from previous stored source
+                state_file = get_terraform_state_file(ctx)
+            # initialize new location to apply terraform
             ctx.instance.runtime_properties.pop('terraform_source', None)
             ctx.instance.runtime_properties.pop('last_source_location', None)
             ctx.node.properties['resource_config']['source'] = source
+            resource_config = ctx.node.properties['resource_config']
+            with get_terraform_source(ctx, resource_config) as terraform_source:
+                tf = Terraform(
+                    ctx.logger,
+                    executable_path,
+                    plugins_dir,
+                    terraform_source,
+                    variables=resource_config.get('variables'),
+                    environment_variables=resource_config.get('environment_variables'))
+                tf.init()
+                if state_file:
+                    move_state_file(state_file, terraform_source)
+                tf.plan()
+                tf.apply()
+                tf_state = tf.state_pull()
+                refresh_resources_properties(ctx, tf_state)
         else:
             raise NonRecoverableError(
-                "New source path/URL for Terraform template was not provided")
-        # initialize Terraform with new template location
-        resource_config = ctx.node.properties['resource_config']
-        with get_terraform_source(ctx, resource_config) as terraform_source:
-            tf = Terraform(
-                ctx.logger,
-                tf.binary_path,
-                tf.plugins_dir,
-                terraform_source,
-                variables=resource_config.get('variables'),
-                environment_variables=resource_config.get('environment_variables'))
-            tf.init()
-            tf.plan()
-            tf.apply()
-            tf_state = tf.state_pull()
-            refresh_resources_properties(ctx, tf_state)
+            "New source path/URL for Terraform template was not provided")
+
+
     except Exception as ex:
-        _, _, tb = sys.exc_info()
-        raise NonRecoverableError(
-            "Failed reloading terraform plan",
-            causes=[exception_to_error_cause(ex, tb)])
+      _, _, tb = sys.exc_info()
+      raise NonRecoverableError(
+          "Failed reloading terraform plan",
+          causes=[exception_to_error_cause(ex, tb)])

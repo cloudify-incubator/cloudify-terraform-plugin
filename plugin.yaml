@@ -89,7 +89,7 @@ node_types:
             source:
               type: string
               default: { get_attribute: [ SELF, last_source_location ] }
-            destory_prev_resources:
+            destroy_previous:
               type: boolean
               default: false
         refresh:
