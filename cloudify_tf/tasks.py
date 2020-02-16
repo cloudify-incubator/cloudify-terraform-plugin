@@ -184,9 +184,8 @@ def reload(ctx, source, destroy_previous, **_):
             raise NonRecoverableError(
             "New source path/URL for Terraform template was not provided")
 
-
     except Exception as ex:
-      _, _, tb = sys.exc_info()
-      raise NonRecoverableError(
-          "Failed reloading terraform plan",
-          causes=[exception_to_error_cause(ex, tb)])
+        _, _, tb = sys.exc_info()
+        raise NonRecoverableError(
+            "Failed destroying",
+            causes=[exception_to_error_cause(ex, tb)])
