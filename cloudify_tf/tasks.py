@@ -187,5 +187,5 @@ def reload(ctx, source, destroy_previous, **_):
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
-            "Failed destroying",
+            "Failed reloading Terraform plan",
             causes=[exception_to_error_cause(ex, tb)])
