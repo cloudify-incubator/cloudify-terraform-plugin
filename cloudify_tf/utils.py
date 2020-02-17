@@ -20,6 +20,7 @@ import threading
 import zipfile
 import os
 from io import BytesIO
+from tempfile import mkstemp
 import StringIO
 import shutil
 import time
@@ -27,6 +28,8 @@ import time
 import requests
 
 from . import TERRAFORM_BACKEND
+
+TERRAFORM_STATE_FILE="terraform.tfstate"
 
 
 def unzip_archive(ctx, archive_path, storage_path, **_):
@@ -146,15 +149,15 @@ def get_terraform_state_file(ctx):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         base64.decode(StringIO.StringIO(encoded_source), f)
         terraform_source_zip = f.name
-    storage_path = ctx.node.properties['storage_path'] or None
+    storage_path = ctx.node.properties.get('storage_path')
     if storage_path and not os.path.isdir(storage_path):
         os.makedirs(storage_path)
     extracted_source = unzip_archive(ctx, terraform_source_zip, storage_path)
     os.remove(terraform_source_zip)
     for dir_name, subdirs, filenames in os.walk(extracted_source):
         for filename in filenames:
-            if filename == 'terraform.tfstate':
-                state_file_path = "/tmp/terraform.tfstate_{0}".format(int(round(time.time() * 1000)))
+            if filename == TERRAFORM_STATE_FILE:
+                fd, state_file_path = mkstemp()
                 shutil.move(os.path.join(dir_name, filename), state_file_path)
                 break
     shutil.rmtree(extracted_source)
@@ -162,7 +165,7 @@ def get_terraform_state_file(ctx):
 
 
 def move_state_file(src, dst):
-    shutil.move(src, os.path.join(dst, "terraform.tfstate"))
+    shutil.move(src, os.path.join(dst, TERRAFORM_STATE_FILE))
 
 
 def create_backend_string(name, options):

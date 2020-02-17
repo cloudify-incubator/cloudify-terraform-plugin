@@ -32,21 +32,8 @@ def with_terraform(func):
     def f(*args, **kwargs):
         ctx = kwargs['ctx']
         resource_config = ctx.node.properties['resource_config']
-        executable_path = ctx.node.properties['executable_path']
-        plugins_dir = ctx.node.properties['plugins_dir']
-        if not os.path.exists(executable_path):
-            raise NonRecoverableError(
-                "Terraform's executable not found in {0}. Please set the "
-                "'executable_path' property accordingly.".format(
-                    executable_path))
         with get_terraform_source(ctx, resource_config) as terraform_source:
-            tf = Terraform(
-                ctx.logger,
-                executable_path,
-                plugins_dir,
-                terraform_source,
-                variables=resource_config.get('variables'),
-                environment_variables=resource_config.get('environment_variables'))
+            tf = Terraform.from_ctx(ctx, terraform_source)
             kwargs['tf'] = tf
             return func(*args, **kwargs)
 
@@ -136,43 +123,26 @@ def reload(ctx, source, destroy_previous, **_):
     """
     try:
         if source:
-            resource_config = ctx.node.properties['resource_config']
-            executable_path = ctx.node.properties['executable_path']
-            plugins_dir = ctx.node.properties['plugins_dir']
-            if not os.path.exists(executable_path):
-                raise NonRecoverableError(
-                    "Terraform's executable not found in {0}. Please set the "
-                    "'executable_path' property accordingly.".format(
-                        executable_path))
             state_file = None
             # if we want to destroy previous: no need to preserve the state file
             # by default the state file will be used if no remote backend
             if destroy_previous:
+                resource_config = ctx.node.properties['resource_config']
                 with get_terraform_source(ctx, resource_config) as terraform_source:
-                    tf = Terraform(
-                        ctx.logger,
-                        executable_path,
-                        plugins_dir,
-                        terraform_source,
-                        variables=resource_config.get('variables'),
-                        environment_variables=resource_config.get('environment_variables'))
+                    tf = Terraform.from_ctx(ctx, terraform_source)
                     tf.destroy()
             else:
                 # extract the state file from previous stored source
                 state_file = get_terraform_state_file(ctx)
+
             # initialize new location to apply terraform
             ctx.instance.runtime_properties.pop('terraform_source', None)
             ctx.instance.runtime_properties.pop('last_source_location', None)
             ctx.node.properties['resource_config']['source'] = source
+
             resource_config = ctx.node.properties['resource_config']
             with get_terraform_source(ctx, resource_config) as terraform_source:
-                tf = Terraform(
-                    ctx.logger,
-                    executable_path,
-                    plugins_dir,
-                    terraform_source,
-                    variables=resource_config.get('variables'),
-                    environment_variables=resource_config.get('environment_variables'))
+                tf = Terraform.from_ctx(ctx, terraform_source)
                 tf.init()
                 if state_file:
                     move_state_file(state_file, terraform_source)
@@ -182,7 +152,7 @@ def reload(ctx, source, destroy_previous, **_):
                 refresh_resources_properties(ctx, tf_state)
         else:
             raise NonRecoverableError(
-            "New source path/URL for Terraform template was not provided")
+                "New source path/URL for Terraform template was not provided")
 
     except Exception as ex:
         _, _, tb = sys.exc_info()
