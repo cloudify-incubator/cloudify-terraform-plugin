@@ -1,3 +1,8 @@
 0.6:
     - Fix for backend file path
     - Added output parse for modules from state pull json
+0.7:
+    - Added reload template implementation
+    - Added Install/Uninstall logic for terraform
+0.8:
+    - Modified install process to allow plugins installation in case of pre-existing terraform installation
