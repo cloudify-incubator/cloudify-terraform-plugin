@@ -164,85 +164,76 @@ def reload_template(ctx, source, destroy_previous, **_):
             causes=[exception_to_error_cause(ex, tb)])
 
 
+def is_using_existing(ctx):
+    return ctx.node.properties['use_existing_resource']
+
+
 def skip_if_existing(func):
     @wraps(func)
     def f(*args, **kwargs):
         ctx = kwargs['ctx']
-        operation_name = ctx.operation.name
-        use_existing = ctx.node.properties['use_existing_resource']
-        if not use_existing:
+        if not is_using_existing(ctx):
             return func(*args, **kwargs)
-        else:
-            if operation_name == 'cloudify.interfaces.lifecycle.create':
-                installation_temp_dir = tempfile.mkdtemp()
-                kwargs['installation_temp_dir'] = installation_temp_dir
-                _install_plugins(**kwargs)
     return f
 
 
-def _unzip_and_set_permissions(ctx, zip_file, target_dir):
-    ctx.logger.info("Unzipping into %s", target_dir)
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-        for name in zip_ref.namelist():
-            zip_ref.extract(name, target_dir)
-            target_file = os.path.join(target_dir, name)
-            ctx.logger.info("Setting executable permission on %s", target_file)
-            run_subprocess(
-                ['chmod', 'u+x', target_file],
-                ctx.logger
-            )
-
-def _install_plugins(ctx, installation_temp_dir, **_):
-    # Create plugins directory, if needed.
-    plugins_dir = ctx.node.properties['plugins_dir']
-    if plugins_dir:
-        if os.path.isdir(plugins_dir):
-            ctx.logger.info("Plugins directory already exists: %s", plugins_dir)
-        else:
-            ctx.logger.info("Creating plugins directory: %s", plugins_dir)
-            os.makedirs(plugins_dir)
-
-    # Install plugins.
-    plugins = ctx.node.properties['plugins']
-    for plugin in plugins:
-        with tempfile.NamedTemporaryFile(
-                suffix=".zip",
-                delete=False,
-                dir=installation_temp_dir) as plugin_zip:
-            plugin_zip.close()
-            ctx.logger.info("Downloading Terraform plugin: %s", plugin)
-            run_subprocess(
-                ['curl', '-o', plugin_zip.name, plugin],
-                ctx.logger
-            )
-            _unzip_and_set_permissions(ctx, plugin_zip.name, plugins_dir)
-
-
 @operation
-@skip_if_existing
 def install(ctx, **_):
+    def _unzip_and_set_permissions(zip_file, target_dir):
+        ctx.logger.info("Unzipping into %s", target_dir)
+        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            for name in zip_ref.namelist():
+                zip_ref.extract(name, target_dir)
+                target_file = os.path.join(target_dir, name)
+                ctx.logger.info("Setting executable permission on %s", target_file)
+                run_subprocess(
+                    ['chmod', 'u+x', target_file],
+                    ctx.logger
+                )
 
     executable_path = ctx.node.properties['executable_path']
     installation_temp_dir = tempfile.mkdtemp()
     try:
-        if os.path.isfile(executable_path):
-            ctx.logger.info(
-                "Terraform executable already found at %s; skipping installation of executable",
-                executable_path)
-        else:
-            installation_source = ctx.node.properties['installation_source']
-            installation_zip = os.path.join(installation_temp_dir, 'tf.zip')
+        if not is_using_existing(ctx):
+            if os.path.isfile(executable_path):
+                ctx.logger.info(
+                    "Terraform executable already found at %s; skipping installation of executable",
+                    executable_path)
+            else:
+                installation_source = ctx.node.properties['installation_source']
+                installation_zip = os.path.join(installation_temp_dir, 'tf.zip')
 
-            ctx.logger.info("Downloading Terraform from %s into %s", installation_source, installation_zip)
-            run_subprocess(
-                ['curl', '-o', installation_zip, installation_source],
-                ctx.logger
-            )
-            executable_dir = os.path.dirname(executable_path)
-            _unzip_and_set_permissions(ctx, installation_zip, executable_dir)
+                ctx.logger.info("Downloading Terraform from %s into %s", installation_source, installation_zip)
+                run_subprocess(
+                    ['curl', '-o', installation_zip, installation_source],
+                    ctx.logger
+                )
+                executable_dir = os.path.dirname(executable_path)
+                _unzip_and_set_permissions(installation_zip, executable_dir)
 
-        # call install plugins
-        _install_plugins(ctx, installation_temp_dir, **_)
+        # Create plugins directory, if needed.
+        plugins_dir = ctx.node.properties['plugins_dir']
+        if plugins_dir:
+            if os.path.isdir(plugins_dir):
+                ctx.logger.info("Plugins directory already exists: %s", plugins_dir)
+            else:
+                ctx.logger.info("Creating plugins directory: %s", plugins_dir)
+                os.makedirs(plugins_dir)
+
+        # Install plugins.
+        plugins = ctx.node.properties['plugins']
+        for plugin in plugins:
+            with tempfile.NamedTemporaryFile(
+                    suffix=".zip",
+                    delete=False,
+                    dir=installation_temp_dir) as plugin_zip:
+                plugin_zip.close()
+                ctx.logger.info("Downloading Terraform plugin: %s", plugin)
+                run_subprocess(
+                    ['curl', '-o', plugin_zip.name, plugin],
+                    ctx.logger
+                )
+                _unzip_and_set_permissions(plugin_zip.name, plugins_dir)
 
         # Create storage path, if specified.
         storage_path = ctx.node.properties['storage_path']
