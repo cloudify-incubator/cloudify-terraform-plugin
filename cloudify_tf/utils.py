@@ -133,7 +133,6 @@ def get_terraform_source(ctx, _resource_config):
             else:
                 terraform_source_zip = ctx.download_resource(terraform_source)
 
-
         # By getting here, "terraform_source_zip" is the path to a ZIP
         # file containing the Terraform files.
         # We need to encode the contents of the file and set them
@@ -154,6 +153,15 @@ def get_terraform_source(ctx, _resource_config):
     extracted_source = unzip_archive(ctx, terraform_source_zip, storage_path)
     os.remove(terraform_source_zip)
 
+    module_root = extracted_source
+    extracted_source_files = os.listdir(module_root)
+    if len(extracted_source_files) == 1:
+        extracted_only_entry = os.path.join(extracted_source, extracted_source_files[0])
+        if os.path.isdir(extracted_only_entry):
+            module_root = extracted_only_entry
+
+    ctx.logger.info("Will use %s as module root", module_root)
+
     backend = _resource_config.get('backend')
     if backend:
         backend_string = create_backend_string(
@@ -165,7 +173,7 @@ def get_terraform_source(ctx, _resource_config):
 
     ctx.logger.debug("Extracted Terraform files: %s", extracted_source)
     try:
-        yield extracted_source
+        yield module_root
     finally:
         ctx.logger.debug("Re-packaging Terraform files from %s", extracted_source)
         with tempfile.NamedTemporaryFile(suffix=".zip",
@@ -202,6 +210,7 @@ def get_terraform_state_file(ctx):
         for filename in filenames:
             if filename == TERRAFORM_STATE_FILE:
                 fd, state_file_path = mkstemp()
+                os.close(fd)
                 shutil.move(os.path.join(dir_name, filename), state_file_path)
                 break
     shutil.rmtree(extracted_source)

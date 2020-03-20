@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.8'
+    package_version: '0.9'
 
 data_types:
   cloudify.types.terraform.Backend:
@@ -133,6 +133,18 @@ workflows:
         default: []
         description: |
           List of node templates to refresh for.
+
   apply_terraform_resources:
     mapping: tf.cloudify_tf.workflows.apply_resources
     parameters: *terraform_workflow_params
+
+  reload_terraform_template:
+    mapping: tf.cloudify_tf.workflows.reload_resources
+    parameters:
+      <<: *terraform_workflow_params
+      source:
+        type: string
+        default: null
+      destroy_previous:
+        type: boolean
+        default: false
