@@ -28,14 +28,6 @@ def refresh_resources(ctx, node_ids, node_instance_ids):
         node_instance_ids).execute()
 
 
-def apply_resources(ctx, node_ids, node_instance_ids):
-    _terraform_operation(
-        ctx,
-        "terraform.apply",
-        node_ids,
-        node_instance_ids).execute()
-
-
 def reload_resources(ctx, node_ids, node_instance_ids, source, destroy_previous):
     kwargs = dict(destroy_previous=destroy_previous)
     if source:

@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.9'
+    package_version: '0.10'
 
 data_types:
   cloudify.types.terraform.Backend:
@@ -115,9 +115,6 @@ node_types:
         refresh:
           # Refreshes Terraform's state.
           implementation: tf.cloudify_tf.tasks.state_pull
-        apply:
-          # Applies the Terraform plan.
-          implementation: tf.cloudify_tf.tasks.apply
 
 workflows:
   refresh_terraform_resources:
@@ -133,10 +130,6 @@ workflows:
         default: []
         description: |
           List of node templates to refresh for.
-
-  apply_terraform_resources:
-    mapping: tf.cloudify_tf.workflows.apply_resources
-    parameters: *terraform_workflow_params
 
   reload_terraform_template:
     mapping: tf.cloudify_tf.workflows.reload_resources

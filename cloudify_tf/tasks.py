@@ -124,38 +124,38 @@ def reload_template(ctx, source, destroy_previous, **_):
     """
     Terraform reload plan given new location as input
     """
+    if not source:
+        raise NonRecoverableError(
+            "New source path/URL for Terraform template was not provided")
+
     try:
-        if source:
-            state_file = None
-            # if we want to destroy previous: no need to preserve the state file
-            # by default the state file will be used if no remote backend
-            if destroy_previous:
-                resource_config = ctx.node.properties['resource_config']
-                with get_terraform_source(ctx, resource_config) as terraform_source:
-                    tf = Terraform.from_ctx(ctx, terraform_source)
-                    tf.destroy()
-            else:
-                # extract the state file from previous stored source
-                state_file = get_terraform_state_file(ctx)
-
-            # initialize new location to apply terraform
-            ctx.instance.runtime_properties.pop('terraform_source', None)
-            ctx.instance.runtime_properties.pop('last_source_location', None)
-            ctx.node.properties['resource_config']['source'] = source
-
+        state_file = None
+        # if we want to destroy previous: no need to preserve the state file
+        # by default the state file will be used if no remote backend
+        if destroy_previous:
             resource_config = ctx.node.properties['resource_config']
             with get_terraform_source(ctx, resource_config) as terraform_source:
                 tf = Terraform.from_ctx(ctx, terraform_source)
-                tf.init()
-                if state_file:
-                    move_state_file(state_file, terraform_source)
-                tf.plan()
-                tf.apply()
-                tf_state = tf.state_pull()
-                refresh_resources_properties(ctx, tf_state)
+                tf.destroy()
         else:
-            raise NonRecoverableError(
-                "New source path/URL for Terraform template was not provided")
+            # extract the state file from previous stored source
+            state_file = get_terraform_state_file(ctx)
+
+        # initialize new location to apply terraform
+        ctx.instance.runtime_properties.pop('terraform_source', None)
+        ctx.instance.runtime_properties.pop('last_source_location', None)
+        ctx.node.properties['resource_config']['source'] = source
+
+        resource_config = ctx.node.properties['resource_config']
+        with get_terraform_source(ctx, resource_config) as terraform_source:
+            tf = Terraform.from_ctx(ctx, terraform_source)
+            tf.init()
+            if state_file:
+                move_state_file(state_file, terraform_source)
+            tf.plan()
+            tf.apply()
+            tf_state = tf.state_pull()
+            refresh_resources_properties(ctx, tf_state)
 
     except Exception as ex:
         _, _, tb = sys.exc_info()
