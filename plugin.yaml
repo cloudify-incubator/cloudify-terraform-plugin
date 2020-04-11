@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.13.0'
+    package_version: '0.13.1'
 
 data_types:
   cloudify.types.terraform.Backend:
@@ -37,6 +37,7 @@ data_types:
         default: {}
 
 node_types:
+  # Represents a Terraform installation.
   cloudify.nodes.terraform:
     derived_from: cloudify.nodes.SoftwareComponent
     properties:
@@ -83,6 +84,7 @@ node_types:
         delete:
           implementation: tf.cloudify_tf.tasks.uninstall
 
+  # Represents a Terraform module.
   cloudify.nodes.terraform.Module:
     derived_from: cloudify.nodes.terraform
     properties:
@@ -107,9 +109,16 @@ node_types:
           implementation: tf.cloudify_tf.tasks.reload_template
           inputs:
             source:
+              description: >
+                URL or path to a ZIP/tar.gz file or a Git repository to obtain
+                new module source from. If omitted, then the module is reloaded
+                from its last location.
               type: string
               default: { get_attribute: [ SELF, last_source_location ] }
             destroy_previous:
+              description: >
+                If true, then the plugin destroys the existing Terraform
+                topology before applying the new one.
               type: boolean
               default: false
         refresh:

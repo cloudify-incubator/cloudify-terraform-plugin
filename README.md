@@ -1,101 +1,100 @@
-
-**This project is in development** 
+**This project is under development** 
 
 # Cloudify Terraform Plugin
 
-Package a Terraform Project as a Cloudify Node Type
+This plugin provides the following functionality:
 
+* Installation, configuration and uninstallation of Terraform itself
+    * Terraform executable
+    * Terraform providers and plugins
+* Representation of Terraform modules as Cloudify nodes
+* Refreshing Terraform state from the cloud
+* Updating Terraform state and applying differences on the cloud
 
-## Pre-install
+## Prerequisites
 
-Install terraform binary on your Cloudify Manager at /usr/bin/terraform, for example these steps
+The Terraform plugin can work with a pre-existing Terraform installation, or it can create a Terraform
+installation for you. In order to use a pre-existing Terraform installation, you will need to provide
+the relevant paths when defining the Terraform node templates (see below).
 
-```shell
-    1  sudo yum install -y wget unzip
-    2  wget https://releases.hashicorp.com/terraform/0.11.7/terraform_0.11.7_linux_amd64.zip
-    3  unzip terraform_0.11.7_linux_amd64.zip
-    4  sudo cp terraform /usr/bin/
-    5  sudo chmod 775 /usr/bin/terraform 
-    6  sudo chown root:root /usr/bin/terraform 
+## Module Source Specification
+
+When defining a source for a Terraform URL, you can specify any of the following:
+
+* URL to a Zip file
+* URL to a `tar.gz` file
+* Path to a Zip file
+* Path to a `tar.gz` file
+* URL to a Git repository (must end with `.git`)
+
+## Node Types
+
+Two node types are provided:
+
+* `cloudify.nodes.terraform`: represents the Terraform installation
+* `cloudify.nodes.terraform.Module`: represents a Terraform module
+
+Refer to the documentation in [plugin.yaml](plugin.yaml) for more information about the node
+types' properties.
+
+### `cloudify.nodes.terraform.Module`
+
+This node type represents a Terraform module. Its lifecycle consists of:
+
+* `create`: initializes Terraform by calling `terraform init` and `terraform plan`.
+* `configure`: executes `terraform state pull`
+* `start`: executes `terraform apply`
+* `delete`: executes `terraform destroy`
+
+At the end of `start`, a runtime property by the name `resources` is being set on the node instance,
+containing the exact dictionary provided by Terraform, representing the state.
+
+In addition, certain day-two operations are provided:
+
+* `terraform.reload`: reloads the template, either from its original location or from an alternative
+  location.
+* `terraform.refresh`: calls `terraform state pull`. 
+
+The `resources` runtime property is updated after each of the aforementioned day-two operations.
+
+## Workflows
+
+The plugin provides the following workflows:
+
+* `refresh_terraform_resources`: a simple wrapper for the `terraform.refresh` operation.
+* `reload_terraform_template`: a simple wrapper for the `terraform.reload` operation.
+
+These workflows, by default, call their relevant wrapped operation for all node instances of the
+Terraform Module type in the current deployment.
+
+If you have more than one Terraform modules in the same blueprint, you can narrow down the scope of the
+workflows by specifying either the `node_instance_ids` or `node_ids` parameters to the workflows.
+
+### Workflow Examples
+
+```bash
+cfy executions start refresh_terraform_resources -d dep_1
 ```
 
-Compress the blueprints/resources/aws-two-tier directory in a zip in the blueprints/resources directory.
+This will execute the "refresh" day-two operation on all node instances inside `dep_1` that represent Terraform
+modules.
 
-
-## Installation
-
-There are two example blueprints.
-
-  1. A simple "wordpress and terraform" blueprint, `wordpress-blueprint.yaml`.
-  1. A simple "terraform only" blueprint, `blueprint.yaml`.
-
-```
-blueprint=wordpress-blueprint.yaml
-deploymentid=terraform
-cfy blueprints upload \
-    blueprints/$blueprint \
-    -b $deploymentid;
-cfy deployments create \
-    -b $deploymentid --skip-plugins-validation;
-cfy executions start install -vv \
-    -d $deploymentid;
-cfy node-instances list -d $deploymentid
+```bash
+cfy executions start refresh_terraform_resources -d dep_1 -p node_ids=[tf_module_1]
 ```
 
+This will execute the "refresh" day-two operation on all node instances that belong to the `tf_module_1` node
+template.
 
-## Refresh a state and store it
-
-If a state has changed and you want to store it, you can run like this:
-
-```shell
-cfy executions start execute_operation -d $deploymentid -p operation='cloudify.interfaces.lifecycle.configure' -p node_instance_ids='["aws_two_tier_example_XXXXXX"]'
-```
-
-
-## Update Deployment to Expose Nodes (Manager Only)
-
-If you selected the simple blueprint, you can expose the aws_instance.web node using the following workflow:
-
-```shell
-cfy executions start export_resource -vv -d $deploymentid -p resource_name=aws_instance.web -p node_instance_id=aws_two_tier_example_XXXXX
-```
-
-If you want to expose and install an agent, you can do so like this:
-
-```shell
-cfy executions start export_resource -vv -d $deploymentid --allow-custom-parameters -p resource_name=aws_instance.web -p install_method=remote -p user=ubuntu -p key='{ "get_secret": "agent_key_private" }' -p network=external -p use_public_ip=1 -p node_instance_id=aws_two_tier_example_XXXXX
-```
-
-
-
-## Uninstall 
-
-```
-cfy uninstall $deploymentid --allow-custom-parameters -p ignore_failure=true
-```
-
-
-## Development and Testing on a Manager
-
-```
-flake8 cloudify_tf/
-git add .; git commit -m 'changes'; git log | head -n 1 | awk '{print $2}'
-# Add commit to plugin.yaml
-git add .; git commit -m 'plugin.yaml'; git push; git log | head -n 1 | awk '{print $2}'
-# Add commit to blueprint.yaml
-```
-
-## Examples
+## Blueprint Examples
 
 For official blueprint examples using this Cloudify plugin, please see [Cloudify Community Blueprints Examples](https://github.com/cloudify-community/blueprint-examples/).
 
-## Todo
+## To Do
 
   * Create a Terraform [Backend Service using HTTP Node Type](https://www.terraform.io/docs/backends/types/http.html).
     * Package in the plugin w/ a node type.
     * The service should run as a daemon.
     * Exposing Terraform resources via Terraform outputs should trigger `execute_resource` workflow on those resources.
     * This should enable a user to interact with Terraform and Cloudify from Terraform CLI.
-  * Support more packaging methods for `cloudify.nodes.terraform.Module`.
-    * Today we use zip and require the user to pre-package this. It's not good.
   * Support Multiple Modules.
