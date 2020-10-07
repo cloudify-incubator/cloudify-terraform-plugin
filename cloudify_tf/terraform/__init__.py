@@ -13,20 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import os
+import json
 import tempfile
 
 from contextlib import contextmanager
 
 from cloudify.exceptions import NonRecoverableError
 
-from ..utils import run_subprocess
+from ..utils import (
+    run_subprocess,
+    get_plugins_dir,
+    get_executable_path,
+    get_resource_config)
 
 
 class Terraform(object):
     # TODO: Rework this to put the execute method in its own module.
     # TODO: After you do that, move all the SSH commands to the tasks module.
+
     def __init__(self,
                  logger,
                  binary_path,
@@ -67,8 +72,10 @@ class Terraform(object):
 
     @contextmanager
     def _vars_file(self, command):
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False,
-                                         mode="w") as f:
+        with tempfile.NamedTemporaryFile(suffix=".json",
+                                         delete=False,
+                                         mode="w",
+                                         dir=self.root_module) as f:
             json.dump(self.variables, f)
             f.close()
             command.extend(['-var-file', f.name])
@@ -112,7 +119,8 @@ class Terraform(object):
         # If we got here, then the "state pull" return code must
         # be zero, and pulled_state actually contains a parse-able
         # JSON.
-        return json.loads(pulled_state)
+        if pulled_state:
+            return json.loads(pulled_state)
 
     def refresh(self):
         command = self._tf_command(['refresh', '-no-color'])
@@ -121,10 +129,9 @@ class Terraform(object):
 
     @staticmethod
     def from_ctx(ctx, terraform_source):
-        executable_path = \
-            ctx.instance.runtime_properties.get('executable_path', "")
-        plugins_dir = ctx.instance.runtime_properties.get('plugins_dir', "")
-        resource_config = ctx.node.properties['resource_config']
+        executable_path = get_executable_path()
+        plugins_dir = get_plugins_dir()
+        resource_config = get_resource_config()
         if not os.path.exists(executable_path):
             raise NonRecoverableError(
                 "Terraform's executable not found in {0}. Please set the "
