@@ -12,17 +12,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import unittest
 
+import unittest
 from os import path
+from mock import patch
 from uuid import uuid1
+from tempfile import mkdtemp
 
 from cloudify.state import current_ctx
 from cloudify.mocks import (MockContext, MockCloudifyContext,
                             MockNodeInstanceContext,
                             MockNodeContext)
 
-from cloudify_tf.tasks import (install, set_directory_config, )
+from ..tasks import (install,
+                     set_directory_config)
+from ..utils import RELATIONSHIP_INSTANCE
+
+
+workdir = mkdtemp()
+
+
+def get_tenant_name():
+    return 'default_tenant'
+
+
+def get_dir(*foo, **bar):
+    return workdir
+
+
+class MockCloudifyContextRels(MockCloudifyContext):
+
+    @property
+    def type(self):
+        return RELATIONSHIP_INSTANCE
 
 
 class TestPlugin(unittest.TestCase):
@@ -38,16 +60,25 @@ class TestPlugin(unittest.TestCase):
             properties=test_properties,
             runtime_properties=None if not test_runtime_properties
             else test_runtime_properties,
+            deployment_id=test_name
         )
         return ctx
 
-    def test_install(self):
+    @patch('cloudify_tf.utils._get_tenant_name', side_effect=get_tenant_name)
+    @patch('cloudify_tf.utils.get_storage_path', side_effect=get_dir)
+    @patch('cloudify_tf.tasks.get_deployment_dir', side_effect=get_dir)
+    @patch('cloudify_tf.utils.get_deployment_dir', side_effect=get_dir)
+    def test_install(self,
+                     get_tenant_fn,
+                     get_storage_path,
+                     get_deployment_dir2,
+                     get_deployment_dir):
         def get_terraform_conf_props():
             return {
                 "terraform_config": {
-                    "executable_path": "/tmp/terra/terraform",
-                    "storage_path": "/tmp/terra/storage",
-                    "plugins_dir": "/tmp/terra/plugins",
+                    "executable_path": path.join(workdir, "terraform"),
+                    "storage_path": path.join(workdir, ".terraform"),
+                    "plugins_dir": path.join(workdir, "plugins"),
                 },
                 "resource_config": {
                     "use_existing_resource": False,
@@ -59,7 +90,7 @@ class TestPlugin(unittest.TestCase):
             }
 
         conf = get_terraform_conf_props()
-        ctx = self.mock_ctx("test_set_directory_config", conf)
+        ctx = self.mock_ctx("test_install", conf)
         current_ctx.set(ctx=ctx)
         kwargs = {
             'ctx': ctx
@@ -76,13 +107,20 @@ class TestPlugin(unittest.TestCase):
             path.isfile(ctx.instance.runtime_properties.get(
                 "executable_path")))
 
-    def test_set_directory_config(self):
+    @patch('cloudify_tf.utils._get_tenant_name', side_effect=get_tenant_name)
+    @patch('cloudify_tf.utils.get_storage_path', side_effect=get_dir)
+    @patch('cloudify_tf.utils.get_deployment_dir', side_effect=get_dir)
+    def test_set_directory_config(self,
+                                  get_tenant_fn,
+                                  get_storage_path,
+                                  get_deployment_dir):
+
         def get_terraform_conf_props():
             return {
                 "terraform_config": {
-                    "executable_path": "/tmp/terra/terraform",
-                    "storage_path": "/tmp/terra/storage",
-                    "plugins_dir": "/tmp/terra/plugins",
+                    "executable_path": path.join(workdir, "terraform"),
+                    "storage_path": path.join(workdir, ".terraform"),
+                    "plugins_dir": path.join(workdir, "plugins"),
                 },
                 "resource_config": {
                     "use_existing_resource": False,
@@ -96,13 +134,13 @@ class TestPlugin(unittest.TestCase):
         def get_terraform_module_conf_props():
             return {
                 "resource_config": {
-                    "source": "/tmp/terra/template",
+                    "source": path.join(workdir, "template"),
                     "variables": {
                         "a": "var1",
                         "b": "var2"
                     },
                     "environment_variables": {
-                        "EXEC_PATH": "/tmp/terra/execution",
+                        "EXEC_PATH": path.join(workdir, "execution"),
                     }
                 }
             }
@@ -129,7 +167,7 @@ class TestPlugin(unittest.TestCase):
             ), '_context': {
                 'node_id': '2'
             }})
-        ctx = MockCloudifyContext(source=source, target=target)
+        ctx = MockCloudifyContextRels(source=source, target=target)
         current_ctx.set(ctx=ctx)
         kwargs = {
             'ctx': ctx
