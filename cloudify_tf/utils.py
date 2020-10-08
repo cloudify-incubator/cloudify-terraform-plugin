@@ -27,10 +27,8 @@ from io import BytesIO
 from contextlib import contextmanager
 
 from cloudify import ctx
-from cloudify.manager import get_rest_client
 from cloudify.exceptions import NonRecoverableError
 from cloudify_common_sdk.utils import get_deployment_dir
-from cloudify_rest_client.constants import VisibilityState
 from cloudify_common_sdk.resource_downloader import unzip_archive
 from cloudify_common_sdk.resource_downloader import untar_archive
 from cloudify_common_sdk.resource_downloader import get_shared_resource
@@ -436,6 +434,8 @@ def remove_dir(folder, desc):
     if os.path.isdir(folder):
         ctx.logger.info('Removing {desc}: {dir}'.format(desc=desc, dir=folder))
         shutil.rmtree(folder)
+    elif os.path.islink(folder):
+        os.unlink(folder)
     else:
         ctx.logger.info(
             'Directory {dir} doesn\'t exist; skipping'.format(dir=folder))
@@ -549,7 +549,7 @@ def get_node_instance_dir(target=False, source=False):
     """
     instance = get_instance(target=target, source=source)
     folder = os.path.join(
-        get_deployment_dir(),
+        get_deployment_dir(ctx.deployment.id),
         instance.id
     )
     if not os.path.exists(folder):

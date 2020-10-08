@@ -29,15 +29,16 @@ from ..tasks import (install,
 from ..utils import RELATIONSHIP_INSTANCE
 
 
-workdir = mkdtemp()
+test_dir1 = mkdtemp()
+test_dir2 = mkdtemp()
 
 
-def get_tenant_name():
-    return 'default_tenant'
+def get_dir1(*foo, **bar):
+    return test_dir1
 
 
-def get_dir(*foo, **bar):
-    return workdir
+def get_dir2(*foo, **bar):
+    return test_dir2
 
 
 class MockCloudifyContextRels(MockCloudifyContext):
@@ -64,28 +65,22 @@ class TestPlugin(unittest.TestCase):
         )
         return ctx
 
-    @patch('cloudify_tf.utils._get_tenant_name', side_effect=get_tenant_name)
-    @patch('cloudify_tf.utils.get_storage_path', side_effect=get_dir)
-    @patch('cloudify_tf.tasks.get_deployment_dir', side_effect=get_dir)
-    @patch('cloudify_tf.utils.get_deployment_dir', side_effect=get_dir)
-    def test_install(self,
-                     get_tenant_fn,
-                     get_storage_path,
-                     get_deployment_dir2,
-                     get_deployment_dir):
+    @patch('cloudify_tf.utils.get_node_instance_dir', side_effect=get_dir1)
+    def test_install(self, _):
         def get_terraform_conf_props():
             return {
                 "terraform_config": {
-                    "executable_path": path.join(workdir, "terraform"),
-                    "storage_path": path.join(workdir, ".terraform"),
-                    "plugins_dir": path.join(workdir, "plugins"),
+                    "executable_path": path.join(test_dir1, "terraform"),
+                    "storage_path": test_dir1,
+                    "plugins_dir": path.join(
+                        test_dir1, '.terraform', "plugins"),
                 },
                 "resource_config": {
                     "use_existing_resource": False,
                     "installation_source":
                         "https://releases.hashicorp.com/terraform/0.11.7/"
                         "terraform_0.11.7_linux_amd64.zip",
-                    "plugins": []
+                    "plugins": {}
                 }
             }
 
@@ -96,31 +91,29 @@ class TestPlugin(unittest.TestCase):
             'ctx': ctx
         }
         install(**kwargs)
-        self.assertEqual(ctx.instance.runtime_properties.get(
-            "executable_path"),
-                         conf.get("terraform_config").get("executable_path"))
-        self.assertEqual(ctx.instance.runtime_properties.get("storage_path"),
-                         conf.get("terraform_config").get("storage_path"))
-        self.assertEqual(ctx.instance.runtime_properties.get("plugins_dir"),
-                         conf.get("terraform_config").get("plugins_dir"))
+        self.assertEqual(
+            ctx.instance.runtime_properties.get("executable_path"),
+            conf.get("terraform_config").get("executable_path"))
+        self.assertEqual(
+            ctx.instance.runtime_properties.get("storage_path"),
+            conf.get("terraform_config").get("storage_path"))
+        self.assertEqual(
+            ctx.instance.runtime_properties.get("plugins_dir"),
+            conf.get("terraform_config").get("plugins_dir"))
         self.assertTrue(
             path.isfile(ctx.instance.runtime_properties.get(
                 "executable_path")))
 
-    @patch('cloudify_tf.utils._get_tenant_name', side_effect=get_tenant_name)
-    @patch('cloudify_tf.utils.get_storage_path', side_effect=get_dir)
-    @patch('cloudify_tf.utils.get_deployment_dir', side_effect=get_dir)
-    def test_set_directory_config(self,
-                                  get_tenant_fn,
-                                  get_storage_path,
-                                  get_deployment_dir):
+    @patch('cloudify_tf.utils.get_node_instance_dir', side_effect=get_dir2)
+    def test_set_directory_config(self, _):
 
-        def get_terraform_conf_props():
+        def get_terraform_conf_props(module_root=test_dir2):
             return {
                 "terraform_config": {
-                    "executable_path": path.join(workdir, "terraform"),
-                    "storage_path": path.join(workdir, ".terraform"),
-                    "plugins_dir": path.join(workdir, "plugins"),
+                    "executable_path": path.join(module_root, "terraform"),
+                    "storage_path": module_root,
+                    "plugins_dir": path.join(module_root,
+                                             '.terraform', "plugins"),
                 },
                 "resource_config": {
                     "use_existing_resource": False,
@@ -131,16 +124,16 @@ class TestPlugin(unittest.TestCase):
                 }
             }
 
-        def get_terraform_module_conf_props():
+        def get_terraform_module_conf_props(module_root=test_dir2):
             return {
                 "resource_config": {
-                    "source": path.join(workdir, "template"),
+                    "source": path.join(module_root, "template"),
                     "variables": {
                         "a": "var1",
                         "b": "var2"
                     },
                     "environment_variables": {
-                        "EXEC_PATH": path.join(workdir, "execution"),
+                        "EXEC_PATH": path.join(module_root, "execution"),
                     }
                 }
             }
@@ -157,13 +150,14 @@ class TestPlugin(unittest.TestCase):
             ), '_context': {
                 'node_id': '1'
             }})
+        source_work_dir = mkdtemp()
         source = MockContext({
             'instance': MockNodeInstanceContext(
                 id='terra_module-1',
                 runtime_properties={}),
             'node': MockNodeContext(
                 id='2',
-                properties=get_terraform_module_conf_props()
+                properties=get_terraform_module_conf_props(source_work_dir)
             ), '_context': {
                 'node_id': '2'
             }})

@@ -176,7 +176,11 @@ def set_directory_config(ctx, **_):
     storage_path = utils.get_storage_path(target=True)
     resource_node_instance_dir = utils.get_node_instance_dir(source=True)
     if not os.path.exists(resource_node_instance_dir):
-        mkdir_p(utils.get_node_instance_dir(source=True))
+        mkdir_p(resource_node_instance_dir)
+    resource_terraform_dir = os.path.join(resource_node_instance_dir,
+                                          '.terraform')
+    deployment_terraform_dir = os.path.join(storage_path,
+                                            '.terraform')
 
     # We don't want to put all the plugins for all the node instances in a
     # deployment multiple times on the system. So here,
@@ -184,12 +188,15 @@ def set_directory_config(ctx, **_):
     # symlinks so other deployments can use it.
     # TODO: Possibly put this in "apply" and remove the relationship in
     # the future.
-    os.symlink(
-        os.path.join(storage_path, '.terraform'),
-        os.path.join(utils.get_node_instance_dir(source=True), '.terraform'))
 
-    resource_plugins_dir = plugins_dir.replace(ctx.target.instance.id, ctx.source.instance.id)
-    resource_storage_dir = storage_path.replace(ctx.target.instance.id, ctx.source.instance.id)
+    ctx.logger.info('Creating link {src} {dst}'.format(
+        src=deployment_terraform_dir, dst=resource_terraform_dir))
+    os.symlink(deployment_terraform_dir, resource_terraform_dir)
+
+    resource_plugins_dir = plugins_dir.replace(
+        ctx.target.instance.id, ctx.source.instance.id)
+    resource_storage_dir = storage_path.replace(
+        ctx.target.instance.id, ctx.source.instance.id)
 
     ctx.logger.info("setting executable_path to {path}".format(
         path=exc_path))
