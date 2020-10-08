@@ -116,7 +116,6 @@ def exclude_file(dirname, filename, excluded_files):
     rel_path = os.path.join(dirname, filename)
     for f in excluded_files:
         if os.path.isfile(f) and rel_path == f:
-            ctx.logger.info('skipping {}'.format(f))
             return True
     return False
 
@@ -129,7 +128,6 @@ def exclude_dirs(dirname, subdirs, excluded_files):
     rel_subdirs = [os.path.join(dirname, d) for d in subdirs]
     for f in excluded_files:
         if os.path.isdir(f) and f in rel_subdirs:
-            ctx.logger.info('skipping {}'.format(f))
             subdirs.remove(ntpath.basename(f))
 
 
@@ -143,29 +141,26 @@ def _zip_archive(extracted_source, exclude_files=None, **_):
     :return:
     """
     exclude_files = exclude_files or []
-    ctx.logger.info('exclude_files {}'.format(exclude_files))
-    ctx.logger.info("Zipping {source}".format(source=extracted_source))
+    ctx.logger.debug('Excluding files {l}'.format(l=exclude_files))
+    ctx.logger.debug("Zipping {source}".format(source=extracted_source))
     with tempfile.NamedTemporaryFile(suffix=".zip",
                                      delete=False) as updated_zip:
         updated_zip.close()
-        with zipfile.ZipFile(
-                updated_zip.name, mode='w',
-                compression=zipfile.ZIP_DEFLATED) as output_file:
+        with zipfile.ZipFile(updated_zip.name,
+                             mode='w',
+                             compression=zipfile.ZIP_DEFLATED) as output_file:
             for dir_name, subdirs, filenames in os.walk(extracted_source):
-                ctx.logger.info('filenames {}'.format(filenames))
                 exclude_dirs(dir_name, subdirs, exclude_files)
-                ctx.logger.info('Added dirs {}'.format(subdirs))
                 for filename in filenames:
                     if not exclude_file(dir_name, filename, exclude_files):
                         file_to_add = os.path.join(dir_name, filename)
                         arc_name = file_to_add[len(extracted_source)+1:]
-                        ctx.logger.info('Added file {}'.format(file_to_add))
                         output_file.write(file_to_add, arcname=arc_name)
         arhcive_file_path = updated_zip.name
     return arhcive_file_path
 
 
-def _unzip_archive(archive_path, storage_path, **_):
+def _unzip_archive(archive_path, storage_path, source_path=None, **_):
     """
     Unzip a zip archive.
     """
@@ -175,7 +170,17 @@ def _unzip_archive(archive_path, storage_path, **_):
     # Extract the object.
     directory_to_extract_to = storage_path
     with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-        zip_ref.extractall(directory_to_extract_to)
+        if source_path:
+            if not source_path.endswith('/'):
+                source_path = source_path + '/'
+            for p in zip_ref.namelist():
+                if source_path in p:
+                    zip_ref.extract(p, directory_to_extract_to)
+                    os.rename(os.path.join(directory_to_extract_to, p),
+                              os.path.join(directory_to_extract_to,
+                                           ntpath.basename(p)))
+        else:
+            zip_ref.extractall(directory_to_extract_to)
     return directory_to_extract_to
 
 
@@ -202,20 +207,22 @@ def _create_source_path(source_tmp_path):
     if not os.path.isabs(source_tmp_path):
         # bundled and need to be downloaded from blueprint
         source_tmp_path = ctx.download_resource(source_tmp_path)
+
     if os.path.isfile(source_tmp_path):
         file_name = source_tmp_path.rsplit('/', 1)[1]
         file_type = file_name.rsplit('.', 1)[1]
         # check type
         if file_type == 'zip':
-            source_tmp_path = unzip_archive(source_tmp_path)
+            return unzip_archive(source_tmp_path)
         elif file_type in TAR_FILE_EXTENSTIONS:
-            source_tmp_path = untar_archive(source_tmp_path)
+            return untar_archive(source_tmp_path)
+
     return source_tmp_path
 
 
 def _unzip_and_set_permissions(zip_file, target_dir):
     """Unzip a file and fix permissions on the files."""
-    ctx.logger.info('Unzipping into {dir}.'.format(dir=target_dir))
+    ctx.logger.debug('Unzipping into {dir}.'.format(dir=target_dir))
 
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         for name in zip_ref.namelist():
@@ -415,6 +422,11 @@ def get_plugins(target=False):
     return resource_config.get('plugins', [])
 
 
+def get_source_path(target=False):
+    resource_config = get_resource_config(target=target)
+    return resource_config.get('source_path')
+
+
 def create_plugins_dir(plugins_dir=None):
     """Create the directory where we will install all the plugins."""
     # Create plugins directory, if needed.
@@ -430,7 +442,7 @@ def create_plugins_dir(plugins_dir=None):
         ctx.instance.runtime_properties['plugins_dir'] = plugins_dir
 
 
-def remove_dir(folder, desc):
+def remove_dir(folder, desc=''):
     if os.path.isdir(folder):
         ctx.logger.info('Removing {desc}: {dir}'.format(desc=desc, dir=folder))
         shutil.rmtree(folder)
@@ -488,7 +500,7 @@ def handle_backend(root_dir):
     ctx.logger.debug('Extracted Terraform files: {loc}'.format(loc=root_dir))
 
 
-def extract_binary_tf_data(root_dir, data):
+def extract_binary_tf_data(root_dir, data, source_path):
     """Take this encoded data and put it in a zip file and then unzip it."""
     with tempfile.NamedTemporaryFile(dir=root_dir, delete=False) as f:
         base64.decode(StringIO(data), f)
@@ -496,7 +508,7 @@ def extract_binary_tf_data(root_dir, data):
 
     # By getting here, "terraform_source_zip" is the path
     #  to a ZIP file containing the Terraform files.
-    _unzip_archive(terraform_source_zip, root_dir)
+    _unzip_archive(terraform_source_zip, root_dir, source_path)
     ctx.logger.info('module_root: {loc}'.format(loc=root_dir))
     os.remove(terraform_source_zip)
     extracted_files = os.listdir(root_dir)
@@ -524,7 +536,8 @@ def _yield_terraform_source(material):
     and then store it again for later use.
     """
     module_root = get_storage_path()
-    extract_binary_tf_data(module_root, material)
+    source_path = get_source_path()
+    extract_binary_tf_data(module_root, material, source_path)
     handle_backend(module_root)
     try:
         yield get_node_instance_dir()
@@ -537,6 +550,7 @@ def _yield_terraform_source(material):
                            get_plugins_dir(),
                            os.path.join(get_storage_path(), '.terraform')])
         base64_rep = _file_to_base64(archived_file)
+        os.remove(archived_file)
         ctx.logger.warn('The after base64_rep size is {size}.'.format(
             size=len(base64_rep)))
         ctx.instance.runtime_properties['terraform_source'] = base64_rep
@@ -568,12 +582,15 @@ def get_terraform_state_file(ctx):
 
     encoded_source = get_terraform_source_material()
     storage_path = get_storage_path()
+    source_path = get_source_path()
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
         base64.decode(StringIO(encoded_source), f)
         terraform_source_zip = f.name
 
-    extracted_source = _unzip_archive(terraform_source_zip, storage_path)
+    extracted_source = _unzip_archive(terraform_source_zip,
+                                      storage_path,
+                                      source_path)
     os.remove(terraform_source_zip)
 
     for dir_name, subdirs, filenames in os.walk(extracted_source):

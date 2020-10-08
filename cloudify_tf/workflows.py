@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 def _terraform_operation(ctx, operation, node_ids,
                          node_instance_ids, **kwargs):
     graph = ctx.graph_mode()

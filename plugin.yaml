@@ -46,10 +46,10 @@ data_types:
       use_existing_resource:
         type: boolean
         description: If true, use an existing Terraform installation rather than installing it
-        default: true
+        default: false
       installation_source:
         type: string
-        default: ''
+        default: 'https://releases.hashicorp.com/terraform/0.13.3/terraform_0.13.3_linux_amd64.zip'
         description: Location to download the Terraform executable binary from. Ignored if 'use_existing' is true.
       plugins:
         # type: list commented for 4.X support
@@ -74,6 +74,10 @@ data_types:
           Path or URL to the ZIP file containing the Terraform project.
           If this is a path, then it must be relative to the blueprint's root.
         required: true
+      source_path:
+        type: string
+        description: The path within the source property, where the terraform files may be found.
+        default: ''
       backend:
         type: cloudify.types.terraform.Backend
         description: >
