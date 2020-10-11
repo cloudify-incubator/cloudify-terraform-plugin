@@ -1,3 +1,5 @@
+0.14.1:
+    - Permit auto-download plugins
 0.14.0:
     - Add default executable_path in the code, not just plugin YAML.
     - Move base64 encode file function.

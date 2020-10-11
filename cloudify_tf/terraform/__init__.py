@@ -41,7 +41,7 @@ class Terraform(object):
                  environment_variables=None):
 
         self.binary_path = binary_path
-        self.plugins_dir = plugins_dir
+        self.plugins_dir = self.set_plugins_dir(plugins_dir)
         self.root_module = root_module
         self.logger = logger
 
@@ -59,6 +59,12 @@ class Terraform(object):
 
         self.env = environment_variables
         self.variables = variables
+
+    @staticmethod
+    def set_plugins_dir(path):
+        if not os.listdir(path):
+            return
+        return path
 
     def execute(self, command, return_output=False):
         return run_subprocess(
