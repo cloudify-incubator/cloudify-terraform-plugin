@@ -33,14 +33,6 @@ test_dir1 = mkdtemp()
 test_dir2 = mkdtemp()
 
 
-def get_dir1(*foo, **bar):
-    return test_dir1
-
-
-def get_dir2(*foo, **bar):
-    return test_dir2
-
-
 class MockCloudifyContextRels(MockCloudifyContext):
 
     @property
@@ -65,7 +57,7 @@ class TestPlugin(unittest.TestCase):
         )
         return ctx
 
-    @patch('cloudify_tf.utils.get_node_instance_dir', side_effect=get_dir1)
+    @patch('cloudify_tf.utils.get_node_instance_dir', return_value=test_dir1)
     def test_install(self, _):
         def get_terraform_conf_props():
             return {
@@ -104,7 +96,7 @@ class TestPlugin(unittest.TestCase):
             path.isfile(ctx.instance.runtime_properties.get(
                 "executable_path")))
 
-    @patch('cloudify_tf.utils.get_node_instance_dir', side_effect=get_dir2)
+    @patch('cloudify_tf.utils.get_node_instance_dir', return_value=test_dir2)
     def test_set_directory_config(self, _):
 
         def get_terraform_conf_props(module_root=test_dir2):

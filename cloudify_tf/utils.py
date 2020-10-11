@@ -419,7 +419,7 @@ def get_plugins_dir(target=False):
 def get_plugins(target=False):
     """These are plugins that the user wishes to install."""
     resource_config = get_resource_config(target=target)
-    return resource_config.get('plugins', [])
+    return resource_config.get('plugins', {})
 
 
 def get_source_path(target=False):

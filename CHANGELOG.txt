@@ -1,7 +1,6 @@
-0.13.5:
+0.14.0:
     - Add default executable_path in the code, not just plugin YAML.
     - Move base64 encode file function.
-    -
 0.13.4:
     - Update wagon builder to py2py3 wagon and add rhel wagon to the release.
     - Add 5.1.0 integration tests.

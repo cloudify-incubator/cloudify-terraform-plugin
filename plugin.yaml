@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.13.5'
+    package_version: '0.14.0'
 
 dsl_definitions:
 
@@ -136,6 +136,10 @@ node_types:
                 from its last location.
               type: string
               default: { get_attribute: [ SELF, last_source_location ] }
+            source_path:
+              type: string
+              description: The path within the source property, where the terraform files may be found.
+              default: { get_property: [ SELF, resource_config, source_path ] }
             destroy_previous:
               description: >
                 If true, then the plugin destroys the existing Terraform

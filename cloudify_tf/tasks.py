@@ -28,9 +28,6 @@ from .decorators import (
 from .terraform import Terraform
 
 
-TF_BINARY = '/usr/bin/terraform'
-
-
 @operation
 @with_terraform
 def apply(ctx, tf, **_):
@@ -101,7 +98,7 @@ def reload_template(ctx, source, destroy_previous, **_):
 
     if destroy_previous:
         with utils.get_terraform_source() as terraform_source:
-            _destroy(Terraform.from_ctx(terraform_source))
+            _destroy(Terraform.from_ctx(ctx, terraform_source))
 
     # initialize new location to apply terraform
     ctx.instance.runtime_properties.pop('terraform_source', None)
@@ -164,7 +161,7 @@ def uninstall(ctx, **_):
     for property_name, property_desc in [
             ('plugins_dir', 'plugins directory'),
             ('storage_path', 'storage_directory')]:
-        dir_to_delete = terraform_config.get('{0}'.format(property_name), '')
+        dir_to_delete = terraform_config.get(property_name, '')
         utils.remove_dir(dir_to_delete, property_desc)
 
 
