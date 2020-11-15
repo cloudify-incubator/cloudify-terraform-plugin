@@ -2,3 +2,4 @@ pyyaml==3.12
 requests==2.23.0
 cloudify-utilities-plugins-sdk>=0.0.30
 mock>=1.0
+urllib3==1.24.3
