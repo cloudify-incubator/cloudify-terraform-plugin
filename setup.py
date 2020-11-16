@@ -45,7 +45,7 @@ setup(
     license='LICENSE',
     install_requires=[
         "cloudify-common>=4.5.5",
-        "pyyaml==3.12",
+        "pyyaml==5.1",
         "requests>=2.7.0,<3.0",
         "cloudify-utilities-plugins-sdk>=0.0.31",  # Shared Resource Downloader
     ],
