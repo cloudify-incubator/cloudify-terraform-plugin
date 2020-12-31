@@ -126,6 +126,8 @@ def exclude_file(dirname, filename, excluded_files):
     """
     rel_path = os.path.join(dirname, filename)
     for f in excluded_files:
+        if not f:
+            continue
         if os.path.isfile(f) and rel_path == f:
             return True
     return False
@@ -138,6 +140,8 @@ def exclude_dirs(dirname, subdirs, excluded_files):
     """
     rel_subdirs = [os.path.join(dirname, d) for d in subdirs]
     for f in excluded_files:
+        if not f:
+            continue
         if os.path.isdir(f) and f in rel_subdirs:
             subdirs.remove(ntpath.basename(f))
 
@@ -231,7 +235,14 @@ def _create_source_path(source_tmp_path):
     return source_tmp_path
 
 
-def _unzip_and_set_permissions(zip_file, target_dir):
+def set_permissions(target_file):
+    run_subprocess(
+        ['chmod', 'u+x', target_file],
+        ctx.logger
+    )
+
+
+def unzip_and_set_permissions(zip_file, target_dir):
     """Unzip a file and fix permissions on the files."""
     ctx.logger.debug('Unzipping into {dir}.'.format(dir=target_dir))
 
@@ -249,10 +260,7 @@ def _unzip_and_set_permissions(zip_file, target_dir):
             target_file = os.path.join(target_dir, name)
             ctx.logger.info('Setting executable permission on '
                             '{loc}.'.format(loc=target_file))
-            run_subprocess(
-                ['chmod', 'u+x', target_file],
-                ctx.logger
-            )
+            set_permissions(target_file)
 
 
 def get_instance(_ctx=None, target=False, source=False):
@@ -282,7 +290,61 @@ def get_node(_ctx=None, target=False):
 def is_using_existing(target=True):
     """Decide if we need to do this work or not."""
     resource_config = get_resource_config(target=target)
+    if not target:
+        tf_rel = find_terraform_node_from_rel()
+        if tf_rel:
+            resource_config = tf_rel.target.instance.runtime_properties.get(
+                'resource_config', {})
     return resource_config.get('use_existing_resource', True)
+
+
+def get_binary_location_from_rel():
+    tf_rel = find_terraform_node_from_rel()
+    terraform_config = tf_rel.target.node.properties.get(
+        'terraform_config', {})
+    candidate_a = terraform_config.get('executable_path')
+    candidate_b = get_executable_path()
+    if candidate_b and os.path.isfile(candidate_b):
+        return candidate_b
+    if candidate_a and os.path.isfile(candidate_a):
+        return candidate_a
+    raise NonRecoverableError(
+        "Terraform's executable not found in {0} or {1}. Please set the "
+        "'executable_path' property accordingly.".format(
+            candidate_b, candidate_a))
+
+
+def find_terraform_node_from_rel():
+    return find_rel_by_type(
+        ctx.instance, 'cloudify.terraform.relationships.run_on_host')
+
+
+def find_rel_by_type(node_instance, rel_type):
+    rels = find_rels_by_type(node_instance, rel_type)
+    return rels[0] if len(rels) > 0 else None
+
+
+def find_rels_by_type(node_instance, rel_type):
+    return [x for x in node_instance.relationships
+            if rel_type in x.type_hierarchy]
+
+
+def install_binary(
+        installation_dir,
+        executable_path,
+        installation_source=None):
+
+    if installation_source:
+        installation_zip = os.path.join(installation_dir, 'tf.zip')
+        ctx.logger.info(
+            'Downloading Terraform from {source} into {zip}.'.format(
+                source=installation_source,
+                zip=installation_zip))
+        download_file(installation_zip, installation_source)
+        executable_dir = os.path.dirname(executable_path)
+        unzip_and_set_permissions(installation_zip, executable_dir)
+        os.remove(installation_zip)
+    return executable_path
 
 
 def get_resource_config(target=False):
@@ -375,6 +437,11 @@ def get_executable_path(target=False):
     if not executable_path:
         executable_path = \
             os.path.join(get_node_instance_dir(target=target), 'terraform')
+    if not os.path.exists(executable_path) and \
+            is_using_existing(target=target):
+        node = get_node(target=target)
+        terraform_config = node.properties.get('terraform_config', {})
+        executable_path = terraform_config.get('executable_path')
     instance.runtime_properties['executable_path'] = executable_path
     ctx.logger.debug('Value executable_path is {loc}.'.format(
         loc=executable_path))
@@ -495,7 +562,7 @@ def handle_plugins(plugins, plugins_dir, installation_dir):
             download_file(plugin_zip.name, plugin_url)
             unzip_path = os.path.join(plugins_dir, plugin_name)
             mkdir_p(os.path.basename(unzip_path))
-            _unzip_and_set_permissions(plugin_zip.name, unzip_path)
+            unzip_and_set_permissions(plugin_zip.name, unzip_path)
             os.remove(plugin_zip.name)
 
 

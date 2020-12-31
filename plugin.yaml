@@ -120,7 +120,7 @@ node_types:
       cloudify.interfaces.lifecycle:
         start:
           implementation: tf.cloudify_tf.tasks.apply
-        delete:
+        stop:
           implementation: tf.cloudify_tf.tasks.destroy
       terraform:
         reload:

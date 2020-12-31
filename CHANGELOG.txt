@@ -1,4 +1,5 @@
 0.14.4:
+    - Handle existing binary on the manager.
     - Mask AWS credentials if provided through environment variables.
     - Some logging improvements.
 0.14.3:

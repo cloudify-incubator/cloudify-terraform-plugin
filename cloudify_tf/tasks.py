@@ -128,15 +128,8 @@ def install(ctx, **_):
                         'If you do not have sufficient permissions, that '
                         'installation will fail.'.format(
                             loc=executable_path))
-        installation_zip = os.path.join(installation_dir, 'tf.zip')
-        ctx.logger.info(
-            'Downloading Terraform from {source} into {zip}.'.format(
-                source=installation_source,
-                zip=installation_zip))
-        utils.download_file(installation_zip, installation_source)
-        executable_dir = os.path.dirname(executable_path)
-        utils._unzip_and_set_permissions(installation_zip, executable_dir)
-        os.remove(installation_zip)
+        utils.install_binary(
+            installation_dir, executable_path, installation_source)
 
     # store the values in the runtime for safe keeping -> validation
     ctx.instance.runtime_properties['executable_path'] = executable_path
@@ -170,34 +163,39 @@ def uninstall(ctx, **_):
 
 
 @operation
-@skip_if_existing
 def set_directory_config(ctx, **_):
     exc_path = utils.get_executable_path(target=True)
     plugins_dir = utils.get_plugins_dir(target=True)
     storage_path = utils.get_storage_path(target=True)
+    deployment_terraform_dir = os.path.join(storage_path,
+                                            '.terraform')
     resource_node_instance_dir = utils.get_node_instance_dir(source=True)
     if not os.path.exists(resource_node_instance_dir):
         mkdir_p(resource_node_instance_dir)
     resource_terraform_dir = os.path.join(resource_node_instance_dir,
                                           '.terraform')
-    deployment_terraform_dir = os.path.join(storage_path,
-                                            '.terraform')
-
-    # We don't want to put all the plugins for all the node instances in a
-    # deployment multiple times on the system. So here,
-    # we already stored it once on the file system, and now we create
-    # symlinks so other deployments can use it.
-    # TODO: Possibly put this in "apply" and remove the relationship in
-    # the future.
-
-    ctx.logger.info('Creating link {src} {dst}'.format(
-        src=deployment_terraform_dir, dst=resource_terraform_dir))
-    os.symlink(deployment_terraform_dir, resource_terraform_dir)
-
     resource_plugins_dir = plugins_dir.replace(
         ctx.target.instance.id, ctx.source.instance.id)
     resource_storage_dir = storage_path.replace(
         ctx.target.instance.id, ctx.source.instance.id)
+
+    if utils.is_using_existing(target=True):
+        # We are going to use a TF binary at another location.
+        # However, we still need to make sure that this directory exists.
+        # Otherwise TF will complain. It does not create it.
+        # In our other scenario, a symlink is created.
+        mkdir_p(resource_terraform_dir)
+    else:
+        # We don't want to put all the plugins for all the node instances in a
+        # deployment multiple times on the system. So here,
+        # we already stored it once on the file system, and now we create
+        # symlinks so other deployments can use it.
+        # TODO: Possibly put this in "apply" and remove the relationship in
+        # the future.
+
+        ctx.logger.info('Creating link {src} {dst}'.format(
+            src=deployment_terraform_dir, dst=resource_terraform_dir))
+        os.symlink(deployment_terraform_dir, resource_terraform_dir)
 
     ctx.logger.info("setting executable_path to {path}".format(
         path=exc_path))

@@ -19,13 +19,7 @@ import tempfile
 
 from contextlib import contextmanager
 
-from cloudify.exceptions import NonRecoverableError
-
-from ..utils import (
-    run_subprocess,
-    get_plugins_dir,
-    get_executable_path,
-    get_resource_config)
+from .. import utils
 
 
 class Terraform(object):
@@ -67,7 +61,7 @@ class Terraform(object):
         return path
 
     def execute(self, command, return_output=False):
-        return run_subprocess(
+        return utils.run_subprocess(
             command, self.logger, self.root_module,
             self.env, return_output=return_output)
 
@@ -135,14 +129,12 @@ class Terraform(object):
 
     @staticmethod
     def from_ctx(ctx, terraform_source):
-        executable_path = get_executable_path()
-        plugins_dir = get_plugins_dir()
-        resource_config = get_resource_config()
-        if not os.path.exists(executable_path):
-            raise NonRecoverableError(
-                "Terraform's executable not found in {0}. Please set the "
-                "'executable_path' property accordingly.".format(
-                    executable_path))
+        executable_path = utils.get_executable_path() or \
+                          utils.get_binary_location_from_rel()
+        plugins_dir = utils.get_plugins_dir()
+        resource_config = utils.get_resource_config()
+        if not os.path.exists(plugins_dir) and utils.is_using_existing():
+            utils.mkdir_p(plugins_dir)
         env_variables = resource_config.get('environment_variables')
         tf = Terraform(
                 ctx.logger,
