@@ -372,13 +372,16 @@ def update_terraform_source_material(new_source, target=False):
     """Replace the terraform_source material with a new material.
     This is used in terraform.reload_template operation."""
     instance = get_instance(target=target)
+    new_source_location = new_source['location']
     source_tmp_path = get_shared_resource(
-        new_source, dir=get_node_instance_dir(target=target))
+        new_source_location, dir=get_node_instance_dir(target=target),
+        username=new_source.get('username'),
+        password=new_source.get('password'))
     ctx.logger.debug('The shared resource path is {loc}'.format(
         loc=source_tmp_path))
 
     # check if we actually downloaded something or not
-    if source_tmp_path == new_source:
+    if source_tmp_path == new_source_location:
         source_tmp_path = _create_source_path(source_tmp_path)
 
     # By getting here we will have extracted source
@@ -389,7 +392,7 @@ def update_terraform_source_material(new_source, target=False):
         size=len(base64_rep)))
 
     instance.runtime_properties['terraform_source'] = base64_rep
-    instance.runtime_properties['last_source_location'] = new_source
+    instance.runtime_properties['last_source_location'] = new_source_location
     instance.update()
     return base64_rep
 

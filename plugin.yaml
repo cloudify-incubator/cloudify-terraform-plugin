@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.14.4'
+    package_version: '0.14.5'
 
 dsl_definitions:
 
@@ -66,13 +66,31 @@ data_types:
         description: Should be a dictionary of key/values.
         required: False
 
-  cloudify.types.terraform.RootModule:
+  cloudify.types.terraform.SourceSpecification:
     properties:
-      source:
+      location:
         type: string
         description: >
           Path or URL to the ZIP file containing the Terraform project.
           If this is a path, then it must be relative to the blueprint's root.
+        required: true
+      username:
+        type: string
+        description: >
+          Username to authenticate with
+        required: false
+      password:
+        type: string
+        description: >
+          Password to authenticate with
+        required: false
+
+  cloudify.types.terraform.RootModule:
+    properties:
+      source:
+        type: cloudify.types.terraform.SourceSpecification
+        description: >
+          Specification of Terraform module's source.
         required: true
       source_path:
         type: string
