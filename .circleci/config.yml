@@ -342,18 +342,15 @@ workflows:
       - wagon:
           filters:
             branches:
-#              only: /([0-9\.]*\-build|master|dev)/
-              only: /RD-1500-use-ecosystem-tests-cli/
+              only: /([0-9\.]*\-build|master|dev)/
       - rhel_wagon:
           filters:
             branches:
-#              only: /([0-9\.]*\-build|master|dev)/
-              only: /RD-1500-use-ecosystem-tests-cli/
+              only: /([0-9\.]*\-build|master|dev)/
       - build_bundle:
           filters:
             branches:
-#              only: /master/
-              only: /RD-1500-use-ecosystem-tests-cli/
+              only: /master/
           requires:
             - wagon
             - rhel_wagon
@@ -362,15 +359,13 @@ workflows:
             - build_bundle
           filters:
             branches:
-#              only: /([0-9\.]*\-build|master|dev)/
-              only: /RD-1500-use-ecosystem-tests-cli/
+              only: /([0-9\.]*\-build|master|dev)/
       - integration_tests_py3:
           requires:
             - build_bundle
           filters:
             branches:
-#              only: /([0-9\.]*\-build|master|dev)/
-              only: /RD-1500-use-ecosystem-tests-cli/
+              only: /([0-9\.]*\-build|master|dev)/
       - release:
           filters:
             branches:
