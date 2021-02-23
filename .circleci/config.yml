@@ -26,7 +26,7 @@ executors:
     machine:
       image: ubuntu-1604:201903-01
 
-  cloudify-machine-510:
+  cloudify-machine-py3:
     machine:
       image: ubuntu-1604:201903-01
 
@@ -186,7 +186,7 @@ commands:
           at: workspace
       - run: python .circleci/package_release.py
 
-  run_integration_tests_505:
+  create_manager_container_505:
     steps:
       - run:
           name: "Pull Submodules"
@@ -219,9 +219,8 @@ commands:
       - run:
           name: install local project
           command: pip install https://github.com/cloudify-incubator/cloudify-ecosystem-test/archive/latest.zip
-      - run: pytest -s .circleci/test_examples.py
 
-  run_integration_tests_510:
+  create_manager_container_py3:
     steps:
       - run:
           name: "Pull Submodules"
@@ -254,7 +253,14 @@ commands:
       - run:
           name: install local project
           command: pip install https://github.com/cloudify-incubator/cloudify-ecosystem-test/archive/latest.zip
-      - run: pytest -s .circleci/test_examples.py
+
+  prepare_test_manager:
+    steps:
+      - run: ecosystem-test prepare-test-manager -l $TEST_LICENSE -es aws_access_key_id=$aws_access_key_id -es aws_secret_access_key=$aws_secret_access_key --bundle-path workspace/build/cloudify-plugins-bundle.tgz
+
+  run_tf_vm_test:
+    steps:
+      - run: ecosystem-test local-blueprint-test  -b examples/blueprint-examples/virtual-machine/aws-terraform.yaml --test-id=virtual-machine -i aws_region_name=us-east-1 --on-failure=uninstall-force --timeout=1800
 
 jobs:
 
@@ -298,19 +304,21 @@ jobs:
     executor: cloudify-machine
     environment:
       CLOUDIFY_SSL_TRUST_ALL: true
-      IAAS: aws
     steps:
       - checkout
-      - run_integration_tests_505
+      - create_manager_container_505
+      - prepare_test_manager
+      - run_tf_vm_test
 
-  integration_tests_510:
-    executor: cloudify-machine-510
+  integration_tests_py3:
+    executor: cloudify-machine-py3
     environment:
       CLOUDIFY_SSL_TRUST_ALL: true
-      IAAS: aws
     steps:
       - checkout
-      - run_integration_tests_510
+      - create_manager_container_py3
+      - prepare_test_manager
+      - run_tf_vm_test
 
   release:
     executor: py27
@@ -321,6 +329,61 @@ jobs:
 workflows:
   version: 2.1
   tests:
+    jobs:
+      - py3_compat
+      - unittests_py27
+      - unittests_py36
+      - wagon:
+          filters:
+            branches:
+#              only: /([0-9\.]*\-build|master|dev)/
+              only: /RD-1500-use-ecosystem-tests-cli/
+      - rhel_wagon:
+          filters:
+            branches:
+#              only: /([0-9\.]*\-build|master|dev)/
+              only: /RD-1500-use-ecosystem-tests-cli/
+      - build_bundle:
+          filters:
+            branches:
+#              only: /master/
+              only: /RD-1500-use-ecosystem-tests-cli/
+          requires:
+            - wagon
+            - rhel_wagon
+      - integration_tests_505:
+          requires:
+            - build_bundle
+          filters:
+            branches:
+#              only: /([0-9\.]*\-build|master|dev)/
+              only: /RD-1500-use-ecosystem-tests-cli/
+      - integration_tests_py3:
+          requires:
+            - build_bundle
+          filters:
+            branches:
+#              only: /([0-9\.]*\-build|master|dev)/
+              only: /RD-1500-use-ecosystem-tests-cli/
+      - release:
+          filters:
+            branches:
+              only: /master/
+          requires:
+            - unittests_py27
+            - unittests_py36
+            - wagon
+            - rhel_wagon
+            - integration_tests_505
+            - integration_tests_py3
+  nightly:
+    triggers:
+    - schedule:
+        cron: "0 1 * * *"
+        filters:
+          branches:
+            only:
+              - master
     jobs:
       - py3_compat
       - unittests_py27
@@ -346,54 +409,9 @@ workflows:
           filters:
             branches:
               only: /([0-9\.]*\-build|master|dev)/
-      - integration_tests_510:
+      - integration_tests_py3:
           requires:
             - build_bundle
-          filters:
-            branches:
-              only: /([0-9\.]*\-build|master|dev)/
-      - release:
-          filters:
-            branches:
-              only: /master/
-          requires:
-            - unittests_py27
-            - unittests_py36
-            - wagon
-            - rhel_wagon
-            - integration_tests_505
-            - integration_tests_510
-  nightly:
-    triggers:
-    - schedule:
-        cron: "0 1 * * *"
-        filters:
-          branches:
-            only:
-              - master
-    jobs:
-      - py3_compat
-      - unittests_py27
-      - unittests_py36
-      - wagon:
-          filters:
-            branches:
-              only: /([0-9\.]*\-build|master|dev)/
-      - rhel_wagon:
-          filters:
-            branches:
-              only: /([0-9\.]*\-build|master|dev)/
-      - integration_tests_505:
-          requires:
-            - wagon
-            - rhel_wagon
-          filters:
-            branches:
-              only: /([0-9\.]*\-build|master|dev)/
-      - integration_tests_510:
-          requires:
-            - wagon
-            - rhel_wagon
           filters:
             branches:
               only: /([0-9\.]*\-build|master|dev)/
