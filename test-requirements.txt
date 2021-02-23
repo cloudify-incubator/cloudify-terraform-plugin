@@ -7,7 +7,5 @@ mock>=1.0
 flake8
 
 # For integration tests
-git+https://github.com/cloudify-cosmo/cloudify-common@master#egg=cloudify-common[dispatcher]==master
-git+https://github.com/cloudify-cosmo/cloudify-cli@master#egg=cloudify-cli==master
 pytest==4.6.3
 pyyaml==3.12
