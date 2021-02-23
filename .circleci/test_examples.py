@@ -27,7 +27,7 @@ SECRETS_TO_CREATE = {
     'aws_secret_access_key': False,
 }
 
-prepare_test(secrets=SECRETS_TO_CREATE, plugin_test=True)
+prepare_test(secrets=SECRETS_TO_CREATE)
 
 blueprint_list = [
     'examples/blueprint-examples/virtual-machine/aws-terraform.yaml']

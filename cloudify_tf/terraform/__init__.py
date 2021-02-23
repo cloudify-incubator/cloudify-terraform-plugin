@@ -19,13 +19,7 @@ import tempfile
 
 from contextlib import contextmanager
 
-from cloudify.exceptions import NonRecoverableError
-
-from ..utils import (
-    run_subprocess,
-    get_plugins_dir,
-    get_executable_path,
-    get_resource_config)
+from .. import utils
 
 
 class Terraform(object):
@@ -41,7 +35,7 @@ class Terraform(object):
                  environment_variables=None):
 
         self.binary_path = binary_path
-        self.plugins_dir = plugins_dir
+        self.plugins_dir = self.set_plugins_dir(plugins_dir)
         self.root_module = root_module
         self.logger = logger
 
@@ -60,8 +54,14 @@ class Terraform(object):
         self.env = environment_variables
         self.variables = variables
 
+    @staticmethod
+    def set_plugins_dir(path):
+        if not os.listdir(path):
+            return
+        return path
+
     def execute(self, command, return_output=False):
-        return run_subprocess(
+        return utils.run_subprocess(
             command, self.logger, self.root_module,
             self.env, return_output=return_output)
 
@@ -86,7 +86,7 @@ class Terraform(object):
         return self.execute(self._tf_command(['version']), True)
 
     def init(self, additional_args=None):
-        cmdline = ['init', '-no-color']
+        cmdline = ['init', '-no-color', '-input=false']
         if self.plugins_dir:
             cmdline.append('--plugin-dir=%s' % self.plugins_dir)
         command = self._tf_command(cmdline)
@@ -95,17 +95,19 @@ class Terraform(object):
         return self.execute(command)
 
     def destroy(self):
-        command = self._tf_command(['destroy', '-auto-approve', '-no-color'])
+        command = self._tf_command(['destroy', '-auto-approve', '-no-color',
+                                    '-input=false'])
         with self._vars_file(command):
             return self.execute(command)
 
     def plan(self):
-        command = self._tf_command(['plan', '-no-color'])
+        command = self._tf_command(['plan', '-no-color', '-input=false'])
         with self._vars_file(command):
             return self.execute(command)
 
     def apply(self):
-        command = self._tf_command(['apply', '-auto-approve', '-no-color'])
+        command = self._tf_command(['apply', '-auto-approve', '-no-color',
+                                    '-input=false'])
         with self._vars_file(command):
             return self.execute(command)
 
@@ -129,14 +131,12 @@ class Terraform(object):
 
     @staticmethod
     def from_ctx(ctx, terraform_source):
-        executable_path = get_executable_path()
-        plugins_dir = get_plugins_dir()
-        resource_config = get_resource_config()
-        if not os.path.exists(executable_path):
-            raise NonRecoverableError(
-                "Terraform's executable not found in {0}. Please set the "
-                "'executable_path' property accordingly.".format(
-                    executable_path))
+        executable_path = utils.get_executable_path() or \
+                          utils.get_binary_location_from_rel()
+        plugins_dir = utils.get_plugins_dir()
+        resource_config = utils.get_resource_config()
+        if not os.path.exists(plugins_dir) and utils.is_using_existing():
+            utils.mkdir_p(plugins_dir)
         env_variables = resource_config.get('environment_variables')
         tf = Terraform(
                 ctx.logger,
