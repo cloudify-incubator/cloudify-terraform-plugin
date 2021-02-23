@@ -1,3 +1,17 @@
+0.15.2:
+    - Fix permission denied issue with installing terraform plugins.
+0.15.1:
+    - Added '-input=false' to avoid indefinite hang in case of missing variables.
+0.14.4:
+    - Handle existing binary on the manager.
+    - Mask AWS credentials if provided through environment variables.
+    - Some logging improvements.
+0.14.3:
+    - Update PyYAML Security vulnerability.
+0.14.2:
+    - Constrain Urllib3 to 1.24.3.
+0.14.1:
+    - Permit auto-download plugins
 0.14.0:
     - Add default executable_path in the code, not just plugin YAML.
     - Move base64 encode file function.

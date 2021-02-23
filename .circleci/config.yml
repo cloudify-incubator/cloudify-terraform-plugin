@@ -196,7 +196,7 @@ commands:
           at: workspace
       - run:
           name: update pip
-          command: pip install -U pip
+          command: pip install -U pip===20.3.3
       - run:
           name: install cloudify
           command: |
@@ -230,7 +230,7 @@ commands:
           at: workspace
       - run:
           name: update pip
-          command: pip install -U pip
+          command: pip install -U pip===20.3.3
       - run:
           name: install cloudify
           command: |
@@ -250,6 +250,9 @@ commands:
       - run:
           name: start docker container
           command: docker run --name cfy_manager -d --restart unless-stopped -v /sys/fs/cgroup:/sys/fs/cgroup:ro --tmpfs /run --tmpfs /run/lock --security-opt seccomp:unconfined --cap-add SYS_ADMIN --network host cloudify-manager-aio:latest
+      - run:
+          name: wait for starter
+          command: docker exec -it cfy_manager cfy_manager wait-for-starter
       - run:
           name: install local project
           command: pip install https://github.com/cloudify-incubator/cloudify-ecosystem-test/archive/latest.zip
@@ -295,7 +298,7 @@ jobs:
       - generate_rhel_py27py36_wagon
 
   build_bundle:
-    executor: wagon_generator
+    executor: py36
     steps:
       - checkout
       - build_archive
@@ -321,7 +324,7 @@ jobs:
       - run_tf_vm_test
 
   release:
-    executor: py27
+    executor: py36
     steps:
       - checkout
       - release_plugin
