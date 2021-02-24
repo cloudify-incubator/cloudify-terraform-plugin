@@ -254,7 +254,6 @@ commands:
           name: install local project
           command: pip install https://github.com/cloudify-incubator/cloudify-ecosystem-test/archive/latest.zip
 
-
   prepare_test_manager:
     steps:
       - run: ecosystem-test prepare-test-manager -l $TEST_LICENSE -es aws_access_key_id=$aws_access_key_id -es aws_secret_access_key=$aws_secret_access_key --bundle-path workspace/build/cloudify-plugins-bundle.tgz
