@@ -112,6 +112,12 @@ class Terraform(object):
         with self._vars_file(command):
             return self.execute(command)
 
+    def output(self):
+        command = self._tf_command(['output', '-json', '-no-color'])
+        returned_output = self.execute(command, True)
+        if returned_output:
+            return json.loads(returned_output)
+
     def graph(self):
         command = self._tf_command(['graph'])
         return self.execute(command)
