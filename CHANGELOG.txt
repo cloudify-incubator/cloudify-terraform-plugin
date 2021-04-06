@@ -1,3 +1,5 @@
+0.15.5:
+    - Add terraform output handling.
 0.15.4:
     - Fix bug for deployment update.
 0.15.3:
