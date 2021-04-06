@@ -3,4 +3,4 @@ cloudify-utilities-plugins-sdk>=0.0.30
 urllib3==1.24.3
 networkx==1.9.1
 cryptography==3.3.2
-gitdb>=4.0.1,<5
+gitdb>=0.6.4
