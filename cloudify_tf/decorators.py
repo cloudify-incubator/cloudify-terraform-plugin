@@ -31,6 +31,24 @@ def with_terraform(func):
     @wraps(func)
     def f(*args, **kwargs):
         ctx = kwargs['ctx']
+        if ctx.workflow_id == 'update' and not is_using_existing(target=False):
+            ctx.logger.error(
+                'The node type cloudify.nodes.terraform, which governs the '
+                'Terraform binary installation method is not currently '
+                'supported by deployment update. Deployment update rolls back '
+                'changed nodes, deleting the deployment directory in the '
+                'process. If only the cloudify.nodes.terraform.Module is '
+                'changed, then the Terraform binary may not be present in '
+                'the manager filesystem. This will result in corruption of '
+                'the Cloudify deployment. Create a new deployment with the '
+                'cloudify.nodes.terraform configured for local binary use. '
+                'You can do this by setting '
+                'terraform_config.use_external_resource to True, and '
+                'terraform_config.executable_path to the path of an '
+                'existing Terraform binary on the Cloudify manager file '
+                'system. If necessary, contact your administrator about '
+                'uploading Terraform binaries to the Cloudify manager.')
+            return
         with get_terraform_source() as terraform_source:
             tf = Terraform.from_ctx(ctx, terraform_source)
             kwargs['tf'] = tf
