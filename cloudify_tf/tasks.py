@@ -15,6 +15,7 @@
 
 import os
 import sys
+import tempfile
 
 from cloudify.decorators import operation
 from cloudify.exceptions import NonRecoverableError
@@ -26,6 +27,7 @@ from .decorators import (
     with_terraform,
     skip_if_existing)
 from .terraform import Terraform
+from .constants import IS_DRIFTED, DRIFTS
 
 
 @operation
@@ -39,21 +41,24 @@ def apply(ctx, tf, **_):
         source = resource_config.get('source')
         reload_template(source, destroy_previous=False, ctx=ctx, tf=tf)
     else:
-        _apply(tf)
+        _apply(tf, ctx)
 
 
-def _apply(tf):
+def _apply(tf, ctx):
     try:
         tf.init()
         tf.plan()
         tf.apply()
-        tf_state = tf.state_pull()
+        # tf_state = tf.state_pull()
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
             "Failed applying",
             causes=[exception_to_error_cause(ex, tb)])
-    utils.refresh_resources_properties(tf_state)
+    # utils.refresh_resources_properties(tf_state)
+    # After apply we don't have drifts.
+    # ctx.instance.runtime_properties[IS_DRIFTED] = False
+    # ctx.instance.runtime_properties[DRIFTS] = {}
 
 
 @operation
@@ -65,13 +70,34 @@ def state_pull(ctx, tf, **_):
     try:
         tf.refresh()
         tf_state = tf.state_pull()
+        with tempfile.NamedTemporaryFile() as plan_file:
+            tf.plan(plan_file.name)
+            plan_json = tf.show(plan_file.name)
+            ctx.logger.info("plan: {}".format(plan_json))
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
             "Failed pulling state",
             causes=[exception_to_error_cause(ex, tb)])
     utils.refresh_resources_properties(tf_state)
+    utils.refresh_resources_drifts_properties(plan_json)
 
+
+def _state_pull(tf):
+    try:
+        tf.refresh()
+        tf_state = tf.state_pull()
+        with tempfile.NamedTemporaryFile() as plan_file:
+            tf.plan(plan_file.name)
+            plan_json = tf.show(plan_file.name)
+            # ctx.logger.info("plan: {}".format(plan_json))
+    except Exception as ex:
+        _, _, tb = sys.exc_info()
+        raise NonRecoverableError(
+            "Failed pulling state",
+            causes=[exception_to_error_cause(ex, tb)])
+    utils.refresh_resources_properties(tf_state)
+    utils.refresh_resources_drifts_properties(plan_json)
 
 @operation
 @with_terraform
@@ -80,6 +106,7 @@ def destroy(ctx, tf, **_):
     Execute `terraform destroy`.
     """
     _destroy(tf)
+    _state_pull(tf)
     ctx.instance.runtime_properties.pop('terraform_source', None)
     ctx.instance.runtime_properties.pop('last_source_location', None)
     ctx.instance.runtime_properties.pop('resource_config', None)
@@ -113,7 +140,7 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
         destroy(tf)
 
     with utils.update_terraform_source(source) as terraform_source:
-        _apply(Terraform.from_ctx(ctx, terraform_source))
+        _apply(Terraform.from_ctx(ctx, terraform_source), ctx)
         ctx.instance.runtime_properties['resource_config'] = \
             utils.get_resource_config()
 

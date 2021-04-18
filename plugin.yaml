@@ -136,8 +136,10 @@ node_types:
         required: true
     interfaces:
       cloudify.interfaces.lifecycle:
-        start:
+        create:
           implementation: tf.cloudify_tf.tasks.apply
+        start:
+          implementation: tf.cloudify_tf.tasks.state_pull
         stop:
           implementation: tf.cloudify_tf.tasks.destroy
       terraform:

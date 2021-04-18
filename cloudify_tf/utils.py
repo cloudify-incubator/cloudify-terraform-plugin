@@ -44,6 +44,7 @@ except ImportError:
 
 from . import TERRAFORM_BACKEND
 from ._compat import text_type, StringIO, PermissionDenied, mkdir_p
+from .constants import IS_DRIFTED,DRIFTS
 
 TERRAFORM_STATE_FILE = 'terraform.tfstate'
 
@@ -744,6 +745,32 @@ def refresh_resources_properties(state):
         for name, definition in module.get('resources', {}).items():
             resources[name] = definition
     ctx.instance.runtime_properties['resources'] = resources
+    # Duplicate for backward compatibility.
+    ctx.instance.runtime_properties['state'] = resources
+
+
+def refresh_resources_drifts_properties(plan_json):
+    """
+        Store all drifts(changes) in resources we created in runtime
+        properties.
+        The change represent the difference between the current state and
+        the desired state.
+        The desired state is the infrastructure crated from terraform source.
+        means that the tf template is the source of truth.
+        :param plan_json: dictionary represent json output of plan,
+        as described
+        here: https://www.terraform.io/docs/internals/json-format.html#plan
+        -representation
+    """
+    ctx.instance.runtime_properties[IS_DRIFTED] = False
+    drifts = {}
+    resource_changes = plan_json.get('resource_changes', [])
+    for resource_change in resource_changes:
+        change = resource_change['change']
+        if change['actions'] not in [['no-op'], ["read"]]:
+            ctx.instance.runtime_properties[IS_DRIFTED] = True
+            drifts[resource_change['name']] = change
+    ctx.instance.runtime_properties[DRIFTS] = drifts
 
 
 def is_url(string):
