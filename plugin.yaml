@@ -136,7 +136,7 @@ node_types:
         required: true
     interfaces:
       cloudify.interfaces.lifecycle:
-        create:
+        configure:
           implementation: tf.cloudify_tf.tasks.apply
         start:
           implementation: tf.cloudify_tf.tasks.state_pull
