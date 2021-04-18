@@ -49,16 +49,12 @@ def _apply(tf):
         tf.init()
         tf.plan()
         tf.apply()
-        # tf_state = tf.state_pull()
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
             "Failed applying",
             causes=[exception_to_error_cause(ex, tb)])
-    # utils.refresh_resources_properties(tf_state)
-    # After apply we don't have drifts.
-    # ctx.instance.runtime_properties[IS_DRIFTED] = False
-    # ctx.instance.runtime_properties[DRIFTS] = {}
+
 
 
 @operation
@@ -68,20 +64,6 @@ def state_pull(ctx, tf, **_):
     Execute `terraform state pull`.
     """
     _state_pull(tf)
-    # try:
-    #     tf.refresh()
-    #     tf_state = tf.state_pull()
-    #     with tempfile.NamedTemporaryFile() as plan_file:
-    #         tf.plan(plan_file.name)
-    #         plan_json = tf.show(plan_file.name)
-    #         ctx.logger.info("plan: {}".format(plan_json))
-    # except Exception as ex:
-    #     _, _, tb = sys.exc_info()
-    #     raise NonRecoverableError(
-    #         "Failed pulling state",
-    #         causes=[exception_to_error_cause(ex, tb)])
-    # utils.refresh_resources_properties(tf_state)
-    # utils.refresh_resources_drifts_properties(plan_json)
 
 
 def _state_pull(tf):
@@ -91,7 +73,6 @@ def _state_pull(tf):
         with tempfile.NamedTemporaryFile() as plan_file:
             tf.plan(plan_file.name)
             plan_json = tf.show(plan_file.name)
-            # ctx.logger.info("plan: {}".format(plan_json))
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
@@ -99,6 +80,7 @@ def _state_pull(tf):
             causes=[exception_to_error_cause(ex, tb)])
     utils.refresh_resources_properties(tf_state)
     utils.refresh_resources_drifts_properties(plan_json)
+
 
 @operation
 @with_terraform
