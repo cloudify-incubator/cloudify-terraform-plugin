@@ -140,8 +140,10 @@ node_types:
           implementation: tf.cloudify_tf.tasks.apply
         start:
           implementation: tf.cloudify_tf.tasks.state_pull
-        stop:
+        delete:
           implementation: tf.cloudify_tf.tasks.destroy
+        pull:
+          implementation: tf.cloudify_tf.tasks.state_pull
       terraform:
         reload:
           # Reloads the Terraform template. By default, the template will be

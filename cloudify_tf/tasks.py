@@ -41,10 +41,10 @@ def apply(ctx, tf, **_):
         source = resource_config.get('source')
         reload_template(source, destroy_previous=False, ctx=ctx, tf=tf)
     else:
-        _apply(tf, ctx)
+        _apply(tf)
 
 
-def _apply(tf, ctx):
+def _apply(tf):
     try:
         tf.init()
         tf.plan()
@@ -67,20 +67,21 @@ def state_pull(ctx, tf, **_):
     """
     Execute `terraform state pull`.
     """
-    try:
-        tf.refresh()
-        tf_state = tf.state_pull()
-        with tempfile.NamedTemporaryFile() as plan_file:
-            tf.plan(plan_file.name)
-            plan_json = tf.show(plan_file.name)
-            ctx.logger.info("plan: {}".format(plan_json))
-    except Exception as ex:
-        _, _, tb = sys.exc_info()
-        raise NonRecoverableError(
-            "Failed pulling state",
-            causes=[exception_to_error_cause(ex, tb)])
-    utils.refresh_resources_properties(tf_state)
-    utils.refresh_resources_drifts_properties(plan_json)
+    _state_pull(tf)
+    # try:
+    #     tf.refresh()
+    #     tf_state = tf.state_pull()
+    #     with tempfile.NamedTemporaryFile() as plan_file:
+    #         tf.plan(plan_file.name)
+    #         plan_json = tf.show(plan_file.name)
+    #         ctx.logger.info("plan: {}".format(plan_json))
+    # except Exception as ex:
+    #     _, _, tb = sys.exc_info()
+    #     raise NonRecoverableError(
+    #         "Failed pulling state",
+    #         causes=[exception_to_error_cause(ex, tb)])
+    # utils.refresh_resources_properties(tf_state)
+    # utils.refresh_resources_drifts_properties(plan_json)
 
 
 def _state_pull(tf):
@@ -137,13 +138,15 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
     source = utils.handle_previous_source_format(source)
 
     if destroy_previous:
-        destroy(tf)
+        # destroy(tf)
+        destroy(tf=tf,ctx=ctx)
 
     with utils.update_terraform_source(source) as terraform_source:
-        _apply(Terraform.from_ctx(ctx, terraform_source), ctx)
+        new_tf = Terraform.from_ctx(ctx, terraform_source)
+        _apply(new_tf)
         ctx.instance.runtime_properties['resource_config'] = \
             utils.get_resource_config()
-
+        _state_pull(new_tf)
 
 @operation
 @skip_if_existing

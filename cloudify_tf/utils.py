@@ -117,7 +117,7 @@ def run_subprocess(command,
         raise subprocess.CalledProcessError(return_code, command)
 
     output = stdout_consumer.buffer.getvalue() if return_output else None
-    logger.info('Returning output:\n{output}'.format(
+    logger.debug('Returning output:\n{output}'.format(
         output=output if output is not None else '<None>'))
     return output
 
