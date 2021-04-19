@@ -13,10 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from os import path
 from mock import patch
-from uuid import uuid1
 from tempfile import mkdtemp
 
 from cloudify.state import current_ctx
@@ -24,6 +22,7 @@ from cloudify.mocks import (MockContext, MockCloudifyContext,
                             MockNodeInstanceContext,
                             MockNodeContext)
 
+from . import TestBase
 from ..tasks import (install,
                      set_directory_config)
 from ..utils import RELATIONSHIP_INSTANCE
@@ -40,22 +39,10 @@ class MockCloudifyContextRels(MockCloudifyContext):
         return RELATIONSHIP_INSTANCE
 
 
-class TestPlugin(unittest.TestCase):
+class TestPlugin(TestBase):
 
     def setUp(self):
         super(TestPlugin, self).setUp()
-
-    def mock_ctx(self, test_name, test_properties,
-                 test_runtime_properties=None):
-        test_node_id = uuid1()
-        ctx = MockCloudifyContext(
-            node_id=test_node_id,
-            properties=test_properties,
-            runtime_properties=None if not test_runtime_properties
-            else test_runtime_properties,
-            deployment_id=test_name
-        )
-        return ctx
 
     @patch('cloudify_tf.utils.get_node_instance_dir', return_value=test_dir1)
     def test_install(self, _):

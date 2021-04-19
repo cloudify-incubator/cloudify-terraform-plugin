@@ -118,7 +118,6 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
     source = utils.handle_previous_source_format(source)
 
     if destroy_previous:
-        # destroy(tf)
         destroy(tf=tf, ctx=ctx)
 
     with utils.update_terraform_source(source) as terraform_source:

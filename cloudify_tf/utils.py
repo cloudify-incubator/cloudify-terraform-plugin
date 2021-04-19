@@ -43,7 +43,7 @@ except ImportError:
     RELATIONSHIP_INSTANCE = 'relationship-instance'
 
 from . import TERRAFORM_BACKEND
-from .constants import IS_DRIFTED, DRIFTS
+from .constants import IS_DRIFTED, DRIFTS, STATE, NAME
 from ._compat import text_type, StringIO, PermissionDenied, mkdir_p
 
 TERRAFORM_STATE_FILE = 'terraform.tfstate'
@@ -740,13 +740,13 @@ def refresh_resources_properties(state):
     """Store all the resources that we created as JSON in the context."""
     resources = {}
     for resource in state.get('resources', []):
-        resources[resource['name']] = resource
+        resources[resource[NAME]] = resource
     for module in state.get('modules', []):
         for name, definition in module.get('resources', {}).items():
             resources[name] = definition
     ctx.instance.runtime_properties['resources'] = resources
     # Duplicate for backward compatibility.
-    ctx.instance.runtime_properties['state'] = resources
+    ctx.instance.runtime_properties[STATE] = resources
 
 
 def refresh_resources_drifts_properties(plan_json):
@@ -767,9 +767,9 @@ def refresh_resources_drifts_properties(plan_json):
     resource_changes = plan_json.get('resource_changes', [])
     for resource_change in resource_changes:
         change = resource_change['change']
-        if change['actions'] not in [['no-op'], ["read"]]:
+        if change['actions'] not in [['no-op'], ['read']]:
             ctx.instance.runtime_properties[IS_DRIFTED] = True
-            drifts[resource_change['name']] = change
+            drifts[resource_change[NAME]] = change
     ctx.instance.runtime_properties[DRIFTS] = drifts
 
 

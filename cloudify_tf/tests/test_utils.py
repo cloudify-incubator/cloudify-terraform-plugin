@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-from uuid import uuid1
-
 from cloudify.state import current_ctx
 
-from cloudify.mocks import MockCloudifyContext
-
+from . import TestBase
 from ..utils import refresh_resources_drifts_properties
 from ..constants import DRIFTS, IS_DRIFTED
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils(TestBase):
     def setUp(self):
         super(TestUtils, self).setUp()
         self.resource_name = "example_vpc"
@@ -56,18 +52,6 @@ class TestUtils(unittest.TestCase):
                                     "change": self.vpc_change}],
                                "prior_state": {},
                                "configuration": {}}
-
-    def mock_ctx(self, test_name, test_properties,
-                 test_runtime_properties=None):
-        test_node_id = uuid1()
-        ctx = MockCloudifyContext(
-            node_id=test_node_id,
-            properties=test_properties,
-            runtime_properties=None if not test_runtime_properties
-            else test_runtime_properties,
-            deployment_id=test_name
-        )
-        return ctx
 
     def test_refresh_resources_drifts_properties_no_drifts(self):
         self.fake_plan_json["resource_changes"] = []

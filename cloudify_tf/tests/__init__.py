@@ -12,3 +12,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import unittest
+from uuid import uuid1
+
+from cloudify.mocks import MockCloudifyContext
+
+
+class TestBase(unittest.TestCase):
+    def setUp(self):
+        super(TestBase, self).setUp()
+
+    def mock_ctx(self, test_name, test_properties,
+                 test_runtime_properties=None):
+        test_node_id = uuid1()
+        ctx = MockCloudifyContext(
+            node_id=test_node_id,
+            properties=test_properties,
+            runtime_properties=None if not test_runtime_properties
+            else test_runtime_properties,
+            deployment_id=test_name
+        )
+        return ctx
