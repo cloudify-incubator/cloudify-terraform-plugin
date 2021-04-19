@@ -146,7 +146,7 @@ def install(ctx, **_):
         ctx.logger.warn('You are requesting to write a new file to {loc}. '
                         'If you do not have sufficient permissions, that '
                         'installation will fail.'.format(
-                                                         loc=executable_path))
+                            loc=executable_path))
         utils.install_binary(
             installation_dir, executable_path, installation_source)
 
