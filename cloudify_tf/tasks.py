@@ -15,7 +15,6 @@
 
 import os
 import sys
-import tempfile
 
 from cloudify.decorators import operation
 from cloudify.exceptions import NonRecoverableError
@@ -68,9 +67,7 @@ def _state_pull(tf):
     try:
         tf.refresh()
         tf_state = tf.state_pull()
-        with tempfile.NamedTemporaryFile() as plan_file:
-            tf.plan(plan_file.name)
-            plan_json = tf.show(plan_file.name)
+        plan_json = tf.plan_and_show()
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
@@ -88,9 +85,10 @@ def destroy(ctx, tf, **_):
     """
     _destroy(tf)
     _state_pull(tf)
-    ctx.instance.runtime_properties.pop('terraform_source', None)
-    ctx.instance.runtime_properties.pop('last_source_location', None)
-    ctx.instance.runtime_properties.pop('resource_config', None)
+    for runtime_property in ['terraform_source',
+                             'last_source_location',
+                             'resource_config']:
+        ctx.instance.runtime_properties.pop(runtime_property, None)
 
 
 def _destroy(tf):

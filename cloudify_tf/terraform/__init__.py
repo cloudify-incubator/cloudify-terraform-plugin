@@ -139,6 +139,15 @@ class Terraform(object):
         if output:
             return json.loads(output)
 
+    def plan_and_show(self):
+        """
+        Execute terraform plan,
+        then terraform show on the generated tfplan file
+        """
+        with tempfile.NamedTemporaryFile() as plan_file:
+            self.plan(plan_file.name)
+            return self.show(plan_file.name)
+
     @staticmethod
     def from_ctx(ctx, terraform_source):
         executable_path = utils.get_executable_path() or \
