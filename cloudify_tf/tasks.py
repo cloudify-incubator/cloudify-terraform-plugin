@@ -27,7 +27,6 @@ from .decorators import (
     with_terraform,
     skip_if_existing)
 from .terraform import Terraform
-from .constants import IS_DRIFTED, DRIFTS
 
 
 @operation
@@ -54,7 +53,6 @@ def _apply(tf):
         raise NonRecoverableError(
             "Failed applying",
             causes=[exception_to_error_cause(ex, tb)])
-
 
 
 @operation
@@ -121,7 +119,7 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
 
     if destroy_previous:
         # destroy(tf)
-        destroy(tf=tf,ctx=ctx)
+        destroy(tf=tf, ctx=ctx)
 
     with utils.update_terraform_source(source) as terraform_source:
         new_tf = Terraform.from_ctx(ctx, terraform_source)
@@ -130,10 +128,10 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
             utils.get_resource_config()
         _state_pull(new_tf)
 
+
 @operation
 @skip_if_existing
 def install(ctx, **_):
-
     installation_dir = utils.get_node_instance_dir()
     executable_path = utils.get_executable_path()
     plugins = utils.get_plugins()
@@ -149,7 +147,7 @@ def install(ctx, **_):
         ctx.logger.warn('You are requesting to write a new file to {loc}. '
                         'If you do not have sufficient permissions, that '
                         'installation will fail.'.format(
-                            loc=executable_path))
+                                                         loc=executable_path))
         utils.install_binary(
             installation_dir, executable_path, installation_source)
 
@@ -177,8 +175,10 @@ def uninstall(ctx, **_):
             os.remove(exc_path)
 
     for property_name, property_desc in [
-            ('plugins_dir', 'plugins directory'),
-            ('storage_path', 'storage_directory')]:
+        ('plugins_dir',
+         'plugins directory'),
+        ('storage_path',
+         'storage_directory')]:
         dir_to_delete = terraform_config.get(property_name, None)
         if dir_to_delete:
             utils.remove_dir(dir_to_delete, property_desc)

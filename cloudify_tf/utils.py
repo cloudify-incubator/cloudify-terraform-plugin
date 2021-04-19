@@ -43,8 +43,8 @@ except ImportError:
     RELATIONSHIP_INSTANCE = 'relationship-instance'
 
 from . import TERRAFORM_BACKEND
+from .constants import IS_DRIFTED, DRIFTS
 from ._compat import text_type, StringIO, PermissionDenied, mkdir_p
-from .constants import IS_DRIFTED,DRIFTS
 
 TERRAFORM_STATE_FILE = 'terraform.tfstate'
 
