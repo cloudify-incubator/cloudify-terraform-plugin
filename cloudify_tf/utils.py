@@ -766,7 +766,7 @@ def refresh_resources_drifts_properties(plan_json):
     drifts = {}
     resource_changes = plan_json.get('resource_changes', [])
     for resource_change in resource_changes:
-        change = resource_change['change']
+        change = resource_change.get('change', {})
         if change['actions'] not in [['no-op'], ['read']]:
             ctx.instance.runtime_properties[IS_DRIFTED] = True
             drifts[resource_change[NAME]] = change
