@@ -43,6 +43,7 @@ except ImportError:
     RELATIONSHIP_INSTANCE = 'relationship-instance'
 
 from . import TERRAFORM_BACKEND
+from .constants import IS_DRIFTED, DRIFTS, STATE, NAME
 from ._compat import text_type, StringIO, PermissionDenied, mkdir_p
 
 TERRAFORM_STATE_FILE = 'terraform.tfstate'
@@ -116,8 +117,9 @@ def run_subprocess(command,
         raise subprocess.CalledProcessError(return_code, command)
 
     output = stdout_consumer.buffer.getvalue() if return_output else None
-    logger.info('Returning output:\n{output}'.format(
-        output=output if output is not None else '<None>'))
+    # Leave this commented in case someone wants to debug.
+    # logger.debug('Returning output:\n{output}'.format(
+    #     output=output if output is not None else '<None>'))
     return output
 
 
@@ -740,11 +742,37 @@ def refresh_resources_properties(state):
     """Store all the resources that we created as JSON in the context."""
     resources = {}
     for resource in state.get('resources', []):
-        resources[resource['name']] = resource
+        resources[resource[NAME]] = resource
     for module in state.get('modules', []):
         for name, definition in module.get('resources', {}).items():
             resources[name] = definition
     ctx.instance.runtime_properties['resources'] = resources
+    # Duplicate for backward compatibility.
+    ctx.instance.runtime_properties[STATE] = resources
+
+
+def refresh_resources_drifts_properties(plan_json):
+    """
+        Store all drifts(changes) in resources we created in runtime
+        properties.
+        The change represent the difference between the current state and
+        the desired state.
+        The desired state is the infrastructure crated from terraform source.
+        means that the tf template is the source of truth.
+        :param plan_json: dictionary represent json output of plan,
+        as described
+        here: https://www.terraform.io/docs/internals/json-format.html#plan
+        -representation
+    """
+    ctx.instance.runtime_properties[IS_DRIFTED] = False
+    drifts = {}
+    resource_changes = plan_json.get('resource_changes', [])
+    for resource_change in resource_changes:
+        change = resource_change.get('change', {})
+        if change['actions'] not in [['no-op'], ['read']]:
+            ctx.instance.runtime_properties[IS_DRIFTED] = True
+            drifts[resource_change[NAME]] = change
+    ctx.instance.runtime_properties[DRIFTS] = drifts
 
 
 def is_url(string):

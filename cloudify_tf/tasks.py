@@ -47,13 +47,11 @@ def _apply(tf):
         tf.init()
         tf.plan()
         tf.apply()
-        tf_state = tf.state_pull()
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
             "Failed applying",
             causes=[exception_to_error_cause(ex, tb)])
-    utils.refresh_resources_properties(tf_state)
 
 
 @operation
@@ -62,15 +60,21 @@ def state_pull(ctx, tf, **_):
     """
     Execute `terraform state pull`.
     """
+    _state_pull(tf)
+
+
+def _state_pull(tf):
     try:
         tf.refresh()
         tf_state = tf.state_pull()
+        plan_json = tf.plan_and_show()
     except Exception as ex:
         _, _, tb = sys.exc_info()
         raise NonRecoverableError(
             "Failed pulling state",
             causes=[exception_to_error_cause(ex, tb)])
     utils.refresh_resources_properties(tf_state)
+    utils.refresh_resources_drifts_properties(plan_json)
 
 
 @operation
@@ -80,9 +84,11 @@ def destroy(ctx, tf, **_):
     Execute `terraform destroy`.
     """
     _destroy(tf)
-    ctx.instance.runtime_properties.pop('terraform_source', None)
-    ctx.instance.runtime_properties.pop('last_source_location', None)
-    ctx.instance.runtime_properties.pop('resource_config', None)
+    _state_pull(tf)
+    for runtime_property in ['terraform_source',
+                             'last_source_location',
+                             'resource_config']:
+        ctx.instance.runtime_properties.pop(runtime_property, None)
 
 
 def _destroy(tf):
@@ -110,18 +116,19 @@ def reload_template(source, destroy_previous, ctx, tf, **_):
     source = utils.handle_previous_source_format(source)
 
     if destroy_previous:
-        destroy(tf)
+        destroy(tf=tf, ctx=ctx)
 
     with utils.update_terraform_source(source) as terraform_source:
-        _apply(Terraform.from_ctx(ctx, terraform_source))
+        new_tf = Terraform.from_ctx(ctx, terraform_source)
+        _apply(new_tf)
         ctx.instance.runtime_properties['resource_config'] = \
             utils.get_resource_config()
+        _state_pull(new_tf)
 
 
 @operation
 @skip_if_existing
 def install(ctx, **_):
-
     installation_dir = utils.get_node_instance_dir()
     executable_path = utils.get_executable_path()
     plugins = utils.get_plugins()
@@ -165,8 +172,10 @@ def uninstall(ctx, **_):
             os.remove(exc_path)
 
     for property_name, property_desc in [
-            ('plugins_dir', 'plugins directory'),
-            ('storage_path', 'storage_directory')]:
+        ('plugins_dir',
+         'plugins directory'),
+        ('storage_path',
+         'storage_directory')]:
         dir_to_delete = terraform_config.get(property_name, None)
         if dir_to_delete:
             utils.remove_dir(dir_to_delete, property_desc)

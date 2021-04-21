@@ -1,3 +1,5 @@
+0.16.0:
+    - Add pull operation and save resources drifts under runtime properties.
 0.15.5:
     - Fail gracefully on deployment update when downloading TF binary.
 0.15.4:

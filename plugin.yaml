@@ -2,7 +2,7 @@ plugins:
   tf:
     executor: central_deployment_agent
     package_name: cloudify-terraform-plugin
-    package_version: '0.15.5'
+    package_version: '0.16.0'
 
 dsl_definitions:
 
@@ -136,10 +136,14 @@ node_types:
         required: true
     interfaces:
       cloudify.interfaces.lifecycle:
-        start:
+        configure:
           implementation: tf.cloudify_tf.tasks.apply
-        stop:
+        start:
+          implementation: tf.cloudify_tf.tasks.state_pull
+        delete:
           implementation: tf.cloudify_tf.tasks.destroy
+        pull:
+          implementation: tf.cloudify_tf.tasks.state_pull
       terraform:
         reload:
           # Reloads the Terraform template. By default, the template will be

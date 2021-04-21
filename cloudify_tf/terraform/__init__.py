@@ -101,8 +101,10 @@ class Terraform(object):
         with self._vars_file(command):
             return self.execute(command)
 
-    def plan(self):
+    def plan(self, out_file_path=None):
         command = self._tf_command(['plan', '-no-color', '-input=false'])
+        if out_file_path:
+            command.extend(['-out', out_file_path])
         with self._vars_file(command):
             return self.execute(command)
 
@@ -129,6 +131,22 @@ class Terraform(object):
         command = self._tf_command(['refresh', '-no-color'])
         with self._vars_file(command):
             return self.execute(command)
+
+    def show(self, plan_file_path):
+        command = self._tf_command(
+            ['show', '-no-color', '-json', plan_file_path])
+        output = self.execute(command, True)
+        if output:
+            return json.loads(output)
+
+    def plan_and_show(self):
+        """
+        Execute terraform plan,
+        then terraform show on the generated tfplan file
+        """
+        with tempfile.NamedTemporaryFile() as plan_file:
+            self.plan(plan_file.name)
+            return self.show(plan_file.name)
 
     @staticmethod
     def from_ctx(ctx, terraform_source):
