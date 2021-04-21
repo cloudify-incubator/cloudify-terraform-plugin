@@ -217,6 +217,7 @@ def _unzip_archive(archive_path, target_directory, source_path=None, **_):
                 os.rename(reset_source, reset_target)
             else:
                 zip_ref.extractall(target_directory)
+
     return target_directory
 
 
